@@ -16,7 +16,7 @@ let enriched = [];
 let chart = null;
 
 const PACE_STORAGE_KEY = 'gpx-flat-pace';
-let flatPace = parseFloat(localStorage.getItem(PACE_STORAGE_KEY)) || 8;
+let flatPace = parseFloat(localStorage.getItem(PACE_STORAGE_KEY)) || 7;
 
 // ---------------------------------------------------------------------------
 // DOM refs

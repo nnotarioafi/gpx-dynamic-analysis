@@ -427,38 +427,38 @@ export function cumulativeGainLoss(enriched) {
 }
 
 // ---------------------------------------------------------------------------
-// Finish-time estimate — Naismith–Rishbeth rule
+// Finish-time estimate — trail-running two-parameter model
 //
-// flatPaceMinKm  : runner's flat pace in min/km (default 8)
-// ascentBonus    : added minutes per 10 m gain  (default 1)
-// descentBonus   : added minutes per 10 m loss  (default 0.5)
+// flatPaceMinKm  : runner's flat pace in min/km (default 7)
+// ascentCost     : added minutes per metre of gain (default 1/32 ≈ 0.031)
+//                  i.e. ~1 min per 32 m climbed
+//
+// Descent is NOT penalised — trail runners maintain or accelerate on downhills.
+// Naismith–Rishbeth was designed for hill-walkers and over-estimates by ~80%.
 //
 // Returns { totalMinutes, hours, minutes } for the whole track.
 // ---------------------------------------------------------------------------
-export function estimateFinishTime(enriched, flatPaceMinKm = 8, ascentBonus = 1, descentBonus = 0.5) {
+export function estimateFinishTime(enriched, flatPaceMinKm = 7, ascentCost = 1 / 32) {
   const s = computeStats(enriched);
-  const baseMin = s.totalDistKm * flatPaceMinKm;
-  const ascentMin = (s.elevationGainM / 10) * ascentBonus;
-  const descentMin = (s.elevationLossM / 10) * descentBonus;
-  const totalMinutes = baseMin + ascentMin + descentMin;
+  const baseMin   = s.totalDistKm * flatPaceMinKm;
+  const ascentMin = s.elevationGainM * ascentCost;
+  const totalMinutes = baseMin + ascentMin;
   return {
     totalMinutes,
-    hours: Math.floor(totalMinutes / 60),
+    hours:   Math.floor(totalMinutes / 60),
     minutes: Math.round(totalMinutes % 60),
   };
 }
 
 // ---------------------------------------------------------------------------
-// Per-climb estimated time (reuses Naismith formula for a single segment)
-// seg: one element from analyzeClimbs() output (climb or descent)
+// Per-climb estimated time (same two-parameter model, scoped to one segment)
+// seg: one element from analyzeClimbs() output
 // type: 'climb' | 'descent'
 // ---------------------------------------------------------------------------
-export function climbEstimatedTime(seg, type, flatPaceMinKm = 8) {
-  const baseMin = seg.lengthKm * flatPaceMinKm;
-  const bonus = type === 'climb'
-    ? (seg.gainM / 10) * 1       // 1 min per 10 m up
-    : (seg.lossM / 10) * 0.5;    // 0.5 min per 10 m down
-  const total = baseMin + bonus;
+export function climbEstimatedTime(seg, type, flatPaceMinKm = 7) {
+  const baseMin  = seg.lengthKm * flatPaceMinKm;
+  const bonus    = type === 'climb' ? (seg.gainM ?? seg.eleDiffM) * (1 / 32) : 0;
+  const total    = baseMin + bonus;
   const h = Math.floor(total / 60);
   const m = Math.round(total % 60);
   return h > 0 ? `~${h}h ${m}m` : `~${m} min`;
