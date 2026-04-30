@@ -19,11 +19,12 @@
           <circle cx="17" cy="6" r="2" fill="#f97316"/>
           <circle cx="26" cy="8" r="2" fill="#38bdf8"/>
         </svg>
-        <span>GPX Dynamic Analysis</span>
+        <span id="app-title-text">GPX Dynamic Analysis</span>
       </div>
-      <label class="btn btn--primary" for="file-input">
+      <button id="lang-toggle" class="btn btn--ghost btn--lang" type="button">ES</button>
+      <label id="load-gpx-btn" class="btn btn--primary" for="file-input">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Load GPX
+        <span id="load-gpx-text">Load GPX</span>
       </label>
       <input type="file" id="file-input" accept=".gpx,application/gpx+xml,text/xml" class="sr-only" />
     </div>
@@ -32,44 +33,103 @@
   <!-- Error banner -->
   <div id="error-msg" class="error-banner hidden"></div>
 
-  <!-- Upload area -->
+  <!-- Upload area + sample picker -->
   <section class="upload-section" id="drop-zone">
     <div class="upload-inner">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <p class="upload-title">Drop your GPX file here</p>
-      <p class="upload-sub">or click <strong>Load GPX</strong> in the header</p>
+      <p id="upload-title" class="upload-title">Drop your GPX file here</p>
+      <p id="upload-sub" class="upload-sub">or click <strong>Load GPX</strong> in the header</p>
+
+      <!-- Sample picker -->
+      <div class="sample-picker" id="sample-picker">
+        <p id="sample-picker-title" class="sample-picker-title">Or try a sample route</p>
+        <div id="sample-list" class="sample-list"></div>
+      </div>
     </div>
   </section>
 
   <!-- Main analysis (hidden until file loaded) -->
   <main id="analysis-section" class="hidden">
 
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="loading-spinner"></div>
+      <span id="loading-text" class="loading-text">Analyzing track…</span>
+    </div>
+
     <!-- Track title -->
     <div class="track-title-bar">
       <h2 id="track-name" class="track-name"></h2>
-      <label id="replace-btn" class="btn btn--ghost hidden" for="file-input">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
-        Replace file
-      </label>
     </div>
+
+    <!-- Elevation chart (first) -->
+    <section class="panel panel--chart">
+      <div class="chart-header">
+        <h3 id="chart-panel-title" class="panel-title">Elevation Profile</h3>
+        <div class="chart-header-right">
+          <button id="cumulative-toggle" class="btn btn--ghost" type="button">Show cumulative ↑↓</button>
+          <span id="chart-hint" class="chart-hint">Drag to select a range&nbsp;·&nbsp;Double-click to clear</span>
+        </div>
+      </div>
+
+      <div class="chart-legend">
+        <span id="legend-climb" class="legend-item legend-item--climb">Climb zone</span>
+        <span id="legend-descent" class="legend-item legend-item--descent">Descent zone</span>
+        <span id="legend-slope" class="legend-item legend-item--gradient">Slope: flat → moderate → steep → extreme</span>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="elevation-canvas"></canvas>
+      </div>
+
+      <!-- Selection stats -->
+      <div id="selection-panel" class="selection-panel hidden">
+        <div class="sel-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <span id="sel-label">Selection:</span> <strong id="sel-range">—</strong>
+        </div>
+        <div class="sel-stats">
+          <div class="sel-stat">
+            <span id="sel-distance-label" class="sel-stat-label">Distance</span>
+            <span id="sel-distance" class="sel-stat-value">—</span>
+          </div>
+          <div class="sel-stat sel-stat--gain">
+            <span id="sel-gain-label" class="sel-stat-label">▲ Gain</span>
+            <span id="sel-gain" class="sel-stat-value">—</span>
+          </div>
+          <div class="sel-stat sel-stat--loss">
+            <span id="sel-loss-label" class="sel-stat-label">▼ Loss</span>
+            <span id="sel-loss" class="sel-stat-value">—</span>
+          </div>
+          <div class="sel-stat">
+            <span id="sel-ascent-label" class="sel-stat-label">Avg Ascent Rate</span>
+            <span id="sel-ascent-rate" class="sel-stat-value">—</span>
+          </div>
+          <div class="sel-stat">
+            <span id="sel-descent-label" class="sel-stat-label">Avg Descent Rate</span>
+            <span id="sel-descent-rate" class="sel-stat-value">—</span>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- Stats + Climbs -->
     <div class="panels-row">
 
       <!-- Stats panel -->
       <section class="panel panel--stats">
-        <h3 class="panel-title">Track Statistics</h3>
+        <h3 id="stats-panel-title" class="panel-title">Track Statistics</h3>
         <div id="stats-grid" class="stats-grid"></div>
       </section>
 
       <!-- Climbs panel -->
       <section class="panel panel--climbs">
-        <h3 class="panel-title">Climbs &amp; Descents Analysis</h3>
+        <h3 id="climbs-panel-title" class="panel-title">Climbs &amp; Descents Analysis</h3>
 
         <div class="threshold-row">
           <label for="threshold-slider" class="threshold-label">
-            Merge threshold
-            <span class="threshold-hint">Higher → fewer hills</span>
+            <span id="threshold-label-text">Merge threshold</span>
+            <span id="threshold-hint" class="threshold-hint">Higher → fewer hills</span>
           </label>
           <div class="threshold-control">
             <input type="range" id="threshold-slider" min="1" max="200" value="20" step="1" />
@@ -81,14 +141,14 @@
           <div class="climbs-col">
             <div class="climbs-col-header climbs-col-header--up">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-              Climbs <span id="climbs-count" class="badge">0</span>
+              <span id="climbs-header-text">Climbs</span> <span id="climbs-count" class="badge">0</span>
             </div>
             <div id="climbs-list" class="climbs-list"></div>
           </div>
           <div class="climbs-col">
             <div class="climbs-col-header climbs-col-header--down">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              Descents <span id="descents-count" class="badge">0</span>
+              <span id="descents-header-text">Descents</span> <span id="descents-count" class="badge">0</span>
             </div>
             <div id="descents-list" class="climbs-list"></div>
           </div>
@@ -97,53 +157,26 @@
 
     </div>
 
-    <!-- Elevation chart -->
-    <section class="panel panel--chart">
-      <div class="chart-header">
-        <h3 class="panel-title">Elevation Profile</h3>
-        <span class="chart-hint">Drag to select a range &nbsp;·&nbsp; Double-click to clear</span>
-      </div>
-
-      <div class="chart-legend">
-        <span class="legend-item legend-item--climb">Climb zone</span>
-        <span class="legend-item legend-item--descent">Descent zone</span>
-        <span class="legend-item legend-item--gradient">Slope: flat → moderate → steep → extreme</span>
-      </div>
-
-      <div class="canvas-wrap">
-        <canvas id="elevation-canvas"></canvas>
-      </div>
-
-      <!-- Selection stats -->
-      <div id="selection-panel" class="selection-panel hidden">
-        <div class="sel-title">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-          Selection: <strong id="sel-range">—</strong>
-        </div>
-        <div class="sel-stats">
-          <div class="sel-stat">
-            <span class="sel-stat-label">Distance</span>
-            <span id="sel-distance" class="sel-stat-value">—</span>
-          </div>
-          <div class="sel-stat sel-stat--gain">
-            <span class="sel-stat-label">▲ Gain</span>
-            <span id="sel-gain" class="sel-stat-value">—</span>
-          </div>
-          <div class="sel-stat sel-stat--loss">
-            <span class="sel-stat-label">▼ Loss</span>
-            <span id="sel-loss" class="sel-stat-value">—</span>
-          </div>
-          <div class="sel-stat">
-            <span class="sel-stat-label">Avg Ascent Rate</span>
-            <span id="sel-ascent-rate" class="sel-stat-value">—</span>
-          </div>
-          <div class="sel-stat">
-            <span class="sel-stat-label">Avg Descent Rate</span>
-            <span id="sel-descent-rate" class="sel-stat-value">—</span>
-          </div>
-        </div>
-      </div>
+    <!-- Terrain Distribution -->
+    <section class="panel panel--terrain">
+      <h3 id="terrain-panel-title" class="panel-title">Terrain Distribution</h3>
+      <div id="terrain-bar"></div>
     </section>
+
+    <!-- Steepest Sections + Per-km Splits row -->
+    <div class="panels-row panels-row--indicators">
+
+      <section class="panel panel--steepest">
+        <h3 id="steepest-panel-title" class="panel-title">Steepest Sections</h3>
+        <div id="steepest-list" class="steepest-list"></div>
+      </section>
+
+      <section class="panel panel--splits" id="splits-container">
+        <h3 id="splits-panel-title" class="panel-title">Per-Km Splits</h3>
+        <div id="splits-body"></div>
+      </section>
+
+    </div>
 
   </main>
 

@@ -26,6 +26,10 @@ export class ElevationChart {
     // Hover state
     this.hoverX = null;
 
+    // Cumulative overlay
+    this.cumulativeData = null; // { dists[], cumGain[], cumLoss[] }
+    this.showCumulative = false;
+
     this._bindEvents();
   }
 
@@ -38,6 +42,17 @@ export class ElevationChart {
     this.descents = descents;
     this.sel = { active: false, startX: null, endX: null, dragging: false };
     this.render();
+  }
+
+  setCumulativeData(data) {
+    this.cumulativeData = data;
+    this.render();
+  }
+
+  toggleCumulative() {
+    this.showCumulative = !this.showCumulative;
+    this.render();
+    return this.showCumulative;
   }
 
   // -------------------------------------------------------------------------
@@ -83,6 +98,7 @@ export class ElevationChart {
     this._drawDescentBands();
     this._drawProfile();
     this._drawAxes();
+    if (this.showCumulative && this.cumulativeData) this._drawCumulative();
     this._drawSelection();
     if (this.hoverX !== null) this._drawCrosshair(this.hoverX);
   }
@@ -274,6 +290,53 @@ export class ElevationChart {
     ctx.fillRect(tx, py - 14, tw, 20);
     ctx.fillStyle = '#fff';
     ctx.fillText(label, tx + 6, py + 1);
+    ctx.restore();
+  }
+
+  _drawCumulative() {
+    const { ctx } = this;
+    const { dists, cumGain, cumLoss } = this.cumulativeData;
+    if (!dists.length) return;
+
+    const maxVal = Math.max(cumGain[cumGain.length - 1], cumLoss[cumLoss.length - 1], 1);
+
+    // Map cumulative value to Y within chart area (top = maxVal, bottom = 0)
+    const valToY = v => this.margin.top + this.chartH - (v / maxVal) * this.chartH;
+
+    // Draw gain line (green)
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 0.7;
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#63d28c';
+    for (let i = 0; i < dists.length; i++) {
+      const x = this._distToX(dists[i]);
+      const y = valToY(cumGain[i]);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Draw loss line (red)
+    ctx.beginPath();
+    ctx.strokeStyle = '#f87171';
+    for (let i = 0; i < dists.length; i++) {
+      const x = this._distToX(dists[i]);
+      const y = valToY(cumLoss[i]);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Right-side axis labels for cumulative
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    const rightX = this.margin.left + this.chartW + 4;
+    ctx.fillStyle = '#63d28c';
+    ctx.fillText('↑' + Math.round(cumGain[cumGain.length - 1]) + 'm', rightX, valToY(cumGain[cumGain.length - 1]) + 3);
+    ctx.fillStyle = '#f87171';
+    ctx.fillText('↓' + Math.round(cumLoss[cumLoss.length - 1]) + 'm', rightX, valToY(cumLoss[cumLoss.length - 1]) + 3);
+
     ctx.restore();
   }
 

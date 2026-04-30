@@ -65,6 +65,12 @@ export function computeStats(enriched) {
     maxElevationM: maxEle,
     minElevationM: minEle,
     pointCount: enriched.length,
+    // ITRA km-effort = distance + gain/100
+    itraKmEffort: totalDist + gain / 100,
+    // Net elevation: finish minus start
+    startElevationM: withEle.length ? withEle[0].ele : null,
+    finishElevationM: withEle.length ? withEle[withEle.length - 1].ele : null,
+    netElevationM: withEle.length ? withEle[withEle.length - 1].ele - withEle[0].ele : null,
   };
 }
 
@@ -258,4 +264,164 @@ export function selectionStats(enriched, fromKm, toKm) {
     avgAscentPct: avgAscentRate / 10,   // m/km ÷ 10 = %
     avgDescentPct: avgDescentRate / 10,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Terrain distribution: % of distance in each gradient category
+// ---------------------------------------------------------------------------
+export function terrainDistribution(enriched) {
+  const withEle = enriched.filter(p => p.ele !== null);
+  if (withEle.length < 2) return null;
+
+  const bins = {
+    flat: 0,       // < 3%
+    modUp: 0,      // 3–10% uphill
+    steepUp: 0,    // > 10% uphill
+    modDown: 0,    // 3–10% downhill
+    steepDown: 0,  // > 10% downhill
+  };
+
+  let totalDist = 0;
+
+  for (let i = 1; i < withEle.length; i++) {
+    const dEle = withEle[i].ele - withEle[i - 1].ele;
+    const dDist = (withEle[i].dist - withEle[i - 1].dist) * 1000; // m
+    if (dDist <= 0) continue;
+
+    const gradPct = (dEle / dDist) * 100; // signed
+    totalDist += dDist;
+
+    const absPct = Math.abs(gradPct);
+    if (absPct < 3)           bins.flat += dDist;
+    else if (gradPct > 0 && absPct <= 10) bins.modUp += dDist;
+    else if (gradPct > 0)     bins.steepUp += dDist;
+    else if (absPct <= 10)    bins.modDown += dDist;
+    else                      bins.steepDown += dDist;
+  }
+
+  if (totalDist === 0) return null;
+
+  return {
+    flat:      (bins.flat      / totalDist) * 100,
+    modUp:     (bins.modUp     / totalDist) * 100,
+    steepUp:   (bins.steepUp   / totalDist) * 100,
+    modDown:   (bins.modDown   / totalDist) * 100,
+    steepDown: (bins.steepDown / totalDist) * 100,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Steepest sections: rolling-window scan for the steepest 200m, 500m, 1km
+// Returns { windowM, startDist, endDist, elevChange, gradientPct } for each
+// ---------------------------------------------------------------------------
+export function steepestSections(enriched) {
+  const withEle = enriched.filter(p => p.ele !== null);
+  if (withEle.length < 3) return [];
+
+  const windows = [0.2, 0.5, 1.0]; // km
+  const results = [];
+
+  for (const winKm of windows) {
+    let maxGrad = 0;
+    let best = null;
+
+    let j = 0;
+    for (let i = 0; i < withEle.length; i++) {
+      // Advance j until window distance is met
+      while (j < withEle.length - 1 && (withEle[j].dist - withEle[i].dist) < winKm) {
+        j++;
+      }
+      const segDist = withEle[j].dist - withEle[i].dist;
+      if (segDist < winKm * 0.8) continue; // skip too-short tail segments
+
+      const elevChange = withEle[j].ele - withEle[i].ele;
+      const gradPct = Math.abs(elevChange / (segDist * 1000)) * 100;
+
+      if (gradPct > maxGrad) {
+        maxGrad = gradPct;
+        best = {
+          windowM: winKm * 1000,
+          startDist: withEle[i].dist,
+          endDist: withEle[j].dist,
+          elevChangeM: elevChange,
+          gradientPct: gradPct,
+          direction: elevChange >= 0 ? 'up' : 'down',
+        };
+      }
+    }
+
+    if (best) results.push(best);
+  }
+
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// Per-km splits: gain/loss/net per integer km
+// ---------------------------------------------------------------------------
+export function perKmSplits(enriched) {
+  const withEle = enriched.filter(p => p.ele !== null);
+  if (withEle.length < 2) return [];
+
+  const totalDist = withEle[withEle.length - 1].dist;
+  const numKm = Math.ceil(totalDist);
+  const splits = [];
+
+  for (let km = 0; km < numKm; km++) {
+    const fromKm = km;
+    const toKm = km + 1;
+    const pts = withEle.filter(p => p.dist >= fromKm && p.dist < toKm);
+    if (pts.length < 2) {
+      splits.push({ km: km + 1, gain: 0, loss: 0, minEle: null, maxEle: null, avgGrad: 0 });
+      continue;
+    }
+
+    let gain = 0, loss = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const d = pts[i].ele - pts[i - 1].ele;
+      if (d > 0) gain += d;
+      else loss += Math.abs(d);
+    }
+
+    const eles = pts.map(p => p.ele);
+    const netEle = pts[pts.length - 1].ele - pts[0].ele;
+    const segDist = pts[pts.length - 1].dist - pts[0].dist;
+    const avgGrad = segDist > 0 ? (netEle / (segDist * 1000)) * 100 : 0;
+
+    splits.push({
+      km: km + 1,
+      gain: Math.round(gain),
+      loss: Math.round(loss),
+      minEle: Math.round(Math.min(...eles)),
+      maxEle: Math.round(Math.max(...eles)),
+      avgGrad,
+    });
+  }
+
+  return splits;
+}
+
+// ---------------------------------------------------------------------------
+// Cumulative gain/loss arrays (for chart overlay)
+// Returns { dists[], cumGain[], cumLoss[] }
+// ---------------------------------------------------------------------------
+export function cumulativeGainLoss(enriched) {
+  const withEle = enriched.filter(p => p.ele !== null);
+  if (withEle.length < 2) return { dists: [], cumGain: [], cumLoss: [] };
+
+  const dists = [withEle[0].dist];
+  const cumGain = [0];
+  const cumLoss = [0];
+
+  let g = 0, l = 0;
+  for (let i = 1; i < withEle.length; i++) {
+    const d = withEle[i].ele - withEle[i - 1].ele;
+    if (d > 0) g += d;
+    else l += Math.abs(d);
+    dists.push(withEle[i].dist);
+    cumGain.push(g);
+    cumLoss.push(l);
+  }
+
+  return { dists, cumGain, cumLoss };
 }
