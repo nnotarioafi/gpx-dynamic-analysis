@@ -350,36 +350,53 @@ function loadFile(file) {
 // ---------------------------------------------------------------------------
 // Process
 // ---------------------------------------------------------------------------
-function processGPX(xmlString, filename) {
-  const gpx = parseGPX(xmlString);
-  enriched = enrichPoints(gpx.points);
 
-  trackName.textContent = gpx.name !== 'Unnamed Track' ? gpx.name : filename.replace('.gpx', '');
+/** Yield to the browser so it can paint a frame before the next heavy task. */
+function yieldFrame() {
+  return new Promise(r => requestAnimationFrame(r));
+}
+
+async function processGPX(xmlString, filename) {
+  const gpx = parseGPX(xmlString);
 
   // Unhide section FIRST so the canvas container has a real clientWidth
   analysisSection.classList.remove('hidden');
   dropZone.classList.add('loaded');
 
-  // Show loading overlay, defer heavy rendering so browser paints it
+  // Show loading overlay and yield so the browser paints it
   const overlay = document.getElementById('loading-overlay');
   overlay.classList.remove('hidden');
+  await yieldFrame();
 
-  requestAnimationFrame(() => {
-    setTimeout(() => {
-      renderStats();
-      renderTerrain();
-      renderRunnableHike();
-      renderSteepest();
-      renderSplits();
-      renderClimbs();
-      renderTrackDifficultyBadge();
-      initChart();
-      overlay.classList.add('hidden');
-      // Show compare button now that Track A is loaded
-      compareSplit.classList.add('visible');
-      initCompareButton();
-    }, 0);
-  });
+  // Phase 1: enrich points (haversine loop — the heaviest single step)
+  enriched = enrichPoints(gpx.points);
+  trackName.textContent = gpx.name !== 'Unnamed Track' ? gpx.name : filename.replace('.gpx', '');
+  await yieldFrame();
+
+  // Phase 2: stats + climbs (needed by multiple panels)
+  renderStats();
+  renderTrackDifficultyBadge();
+  await yieldFrame();
+
+  // Phase 3: terrain / runnable / steepest
+  renderTerrain();
+  renderRunnableHike();
+  renderSteepest();
+  await yieldFrame();
+
+  // Phase 4: splits + climbs panels
+  renderSplits();
+  renderClimbs();   // also calls chart.setData internally after initChart
+  await yieldFrame();
+
+  // Phase 5: chart
+  initChart();
+
+  overlay.classList.add('hidden');
+
+  // Show compare button now that Track A is loaded
+  compareSplit.classList.add('visible');
+  initCompareButton();
 }
 
 // ---------------------------------------------------------------------------
@@ -848,11 +865,18 @@ function loadCompareFile(file) {
   reader.readAsText(file);
 }
 
-function processCompareGPX(xmlString, filename) {
+async function processCompareGPX(xmlString, filename) {
+  const overlay = document.getElementById('loading-overlay');
+  overlay.classList.remove('hidden');
+  await yieldFrame();
+
   const gpx = parseGPX(xmlString);
   enrichedB = enrichPoints(gpx.points);
   trackNameB = gpx.name !== 'Unnamed Track' ? gpx.name : filename.replace('.gpx', '');
+  await yieldFrame();
+
   renderComparison();
+  overlay.classList.add('hidden');
 }
 
 function clearCompareTrack() {

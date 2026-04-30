@@ -224,7 +224,8 @@ export class ElevationChart {
 
   _drawProfile() {
     const { ctx } = this;
-    const pts = this.enriched;
+    // Decimate to canvas resolution before any drawing work
+    const pts = this._decimateForCanvas(this.enriched);
     const bottomY = this.margin.top + this.chartH;
 
     // Gradient fill (background area under the line)
@@ -245,25 +246,79 @@ export class ElevationChart {
     ctx.fill();
     ctx.restore();
 
-    // Gradient-coloured profile line: colour each segment by gradient %
-    // 0–5%: green, 5–10%: yellow, 10–15%: orange, >15%: red
+    // Colour-batched profile line: group consecutive segments by gradient bucket
+    // so we issue one stroke() call per colour run instead of one per point-pair.
     ctx.save();
     ctx.lineWidth = 2.5;
     ctx.lineJoin = 'round';
     ctx.setLineDash([]);
 
+    let currentColor = null;
+
     for (let i = 1; i < pts.length; i++) {
       const dEle  = pts[i].ele  - pts[i - 1].ele;
       const dDist = (pts[i].dist - pts[i - 1].dist) * 1000; // m
       const gradPct = dDist > 0 ? Math.abs(dEle / dDist) * 100 : 0;
+      const color = gradientColor(gradPct);
 
-      ctx.beginPath();
-      ctx.strokeStyle = gradientColor(gradPct);
-      ctx.moveTo(this._distToX(pts[i - 1].dist), this._eleToY(pts[i - 1].ele));
-      ctx.lineTo(this._distToX(pts[i].dist),     this._eleToY(pts[i].ele));
-      ctx.stroke();
+      if (color !== currentColor) {
+        if (currentColor !== null) ctx.stroke(); // flush previous colour run
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        // Start the new path from the previous point so there's no gap
+        ctx.moveTo(this._distToX(pts[i - 1].dist), this._eleToY(pts[i - 1].ele));
+        currentColor = color;
+      }
+      ctx.lineTo(this._distToX(pts[i].dist), this._eleToY(pts[i].ele));
     }
+    if (currentColor !== null) ctx.stroke(); // flush final colour run
+
     ctx.restore();
+  }
+
+  /**
+   * Reduce `pts` to at most `chartW * 2` representative points so that the
+   * canvas never processes more points than it has pixel columns.
+   *
+   * Strategy: for each pixel column, keep the point with the minimum elevation
+   * and the point with the maximum elevation (in x-order). This preserves the
+   * visual shape (peaks and valleys) while reducing a 30 000-point track to
+   * ~2 000 points on a 1000-px canvas.
+   */
+  _decimateForCanvas(pts) {
+    const maxPts = Math.max(this.chartW * 2, 500);
+    if (pts.length <= maxPts) return pts;
+
+    const maxDist = pts[pts.length - 1].dist || 1;
+    const columns = Math.ceil(this.chartW);
+    // Each column covers this many km
+    const colWidth = maxDist / columns;
+
+    const buckets = new Array(columns);
+    for (const p of pts) {
+      const col = Math.min(Math.floor(p.dist / colWidth), columns - 1);
+      const b = buckets[col];
+      if (!b) {
+        buckets[col] = { min: p, max: p };
+      } else {
+        if (p.ele < b.min.ele) b.min = p;
+        if (p.ele > b.max.ele) b.max = p;
+      }
+    }
+
+    const result = [];
+    for (const b of buckets) {
+      if (!b) continue;
+      // Add in dist order so the line doesn't zigzag
+      if (b.min.dist <= b.max.dist) {
+        result.push(b.min);
+        if (b.min !== b.max) result.push(b.max);
+      } else {
+        result.push(b.max);
+        if (b.min !== b.max) result.push(b.min);
+      }
+    }
+    return result;
   }
 
   _drawAxes() {

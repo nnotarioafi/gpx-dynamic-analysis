@@ -53,9 +53,12 @@ export function computeStats(enriched) {
     else loss += Math.abs(delta);
   }
 
-  const eles = withEle.map(p => p.ele);
-  const maxEle = eles.length ? Math.max(...eles) : null;
-  const minEle = eles.length ? Math.min(...eles) : null;
+  let maxEle = withEle.length ? -Infinity : null;
+  let minEle = withEle.length ?  Infinity : null;
+  for (const p of withEle) {
+    if (p.ele > maxEle) maxEle = p.ele;
+    if (p.ele < minEle) minEle = p.ele;
+  }
   const totalDist = enriched[enriched.length - 1]?.dist ?? 0;
 
   return {
@@ -100,6 +103,16 @@ function movingAvg(arr, window = 5) {
 export function analyzeClimbs(enriched, thresholdM = 20) {
   const withEle = enriched.filter(p => p.ele !== null);
   if (withEle.length < 3) return { climbs: [], descents: [] };
+
+  // Binary search: first index where withEle[i].dist >= target
+  function lowerBound(target) {
+    let lo = 0, hi = withEle.length;
+    while (lo < hi) {
+      const m = (lo + hi) >> 1;
+      withEle[m].dist < target ? (lo = m + 1) : (hi = m);
+    }
+    return lo;
+  }
 
   const rawEle = withEle.map(p => p.ele);
   const smoothed = movingAvg(rawEle, 7);
@@ -183,8 +196,10 @@ export function analyzeClimbs(enriched, thresholdM = 20) {
 
     if (Math.abs(eleDiff) < thresholdM) continue;
 
-    // Find actual raw points in this range to compute real gain/loss & gradient
-    const segPts = withEle.filter(p => p.dist >= from.dist && p.dist <= to.dist);
+    // Use binary search to slice only the points in this segment range
+    const lo = lowerBound(from.dist);
+    const hi = lowerBound(to.dist + 1e-9);
+    const segPts = withEle.slice(lo, hi);
 
     let realGain = 0;
     let realLoss = 0;
@@ -365,40 +380,39 @@ export function perKmSplits(enriched) {
 
   const totalDist = withEle[withEle.length - 1].dist;
   const numKm = Math.ceil(totalDist);
-  const splits = [];
 
-  for (let km = 0; km < numKm; km++) {
-    const fromKm = km;
-    const toKm = km + 1;
-    const pts = withEle.filter(p => p.dist >= fromKm && p.dist < toKm);
-    if (pts.length < 2) {
-      splits.push({ km: km + 1, gain: 0, loss: 0, minEle: null, maxEle: null, avgGrad: 0 });
-      continue;
-    }
-
-    let gain = 0, loss = 0;
-    for (let i = 1; i < pts.length; i++) {
-      const d = pts[i].ele - pts[i - 1].ele;
-      if (d > 0) gain += d;
-      else loss += Math.abs(d);
-    }
-
-    const eles = pts.map(p => p.ele);
-    const netEle = pts[pts.length - 1].ele - pts[0].ele;
-    const segDist = pts[pts.length - 1].dist - pts[0].dist;
-    const avgGrad = segDist > 0 ? (netEle / (segDist * 1000)) * 100 : 0;
-
-    splits.push({
-      km: km + 1,
-      gain: Math.round(gain),
-      loss: Math.round(loss),
-      minEle: Math.round(Math.min(...eles)),
-      maxEle: Math.round(Math.max(...eles)),
-      avgGrad,
-    });
+  // Allocate buckets once, fill in a single O(n) pass
+  const buckets = Array.from({ length: numKm }, (_, i) => ({ km: i + 1, pts: [] }));
+  for (const p of withEle) {
+    const idx = Math.min(Math.floor(p.dist), numKm - 1);
+    buckets[idx].pts.push(p);
   }
 
-  return splits;
+  return buckets.map(({ km, pts }) => {
+    if (pts.length < 2) return { km, gain: 0, loss: 0, minEle: null, maxEle: null, avgGrad: 0 };
+
+    let gain = 0, loss = 0;
+    let minEle = pts[0].ele, maxEle = pts[0].ele;
+
+    for (let i = 1; i < pts.length; i++) {
+      const d = pts[i].ele - pts[i - 1].ele;
+      if (d > 0) gain += d; else loss += Math.abs(d);
+      if (pts[i].ele < minEle) minEle = pts[i].ele;
+      if (pts[i].ele > maxEle) maxEle = pts[i].ele;
+    }
+
+    const netEle  = pts[pts.length - 1].ele - pts[0].ele;
+    const segDist = pts[pts.length - 1].dist - pts[0].dist;
+
+    return {
+      km,
+      gain:    Math.round(gain),
+      loss:    Math.round(loss),
+      minEle:  Math.round(minEle),
+      maxEle:  Math.round(maxEle),
+      avgGrad: segDist > 0 ? (netEle / (segDist * 1000)) * 100 : 0,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
