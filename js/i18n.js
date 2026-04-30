@@ -113,6 +113,21 @@ const locales = {
 
     // Per-climb time
     estTimeLabel: 'Est. time',
+
+    // Track comparison
+    compareBtn:       'Compare +',
+    clearCompare:     'Clear comparison',
+    comparisonTitle:  'Track Comparison',
+    trackALabel:      'Track A',
+    trackBLabel:      'Track B',
+    vsLabel:          'vs',
+    noCompareTrack:   'Load a second track to compare',
+    colAGain:         'A ↑',
+    colALoss:         'A ↓',
+    colAAvg:          'A grade',
+    colBGain:         'B ↑',
+    colBLoss:         'B ↓',
+    colBAvg:          'B grade',
   },
 
   es: {
@@ -213,12 +228,27 @@ const locales = {
     unitMinKm:         'min/km',
 
     // Runnable vs hike
-    runnableHikeTitle: 'Corrible vs Senderismo',
-    runnableLabel: 'Corrible',
-    hikeLabel:     'Senderismo (≥20% pend.)',
+    runnableHikeTitle: 'Corre vs Caminar',
+    runnableLabel: 'Correr',
+    hikeLabel:     'Caminar (≥20% pend.)',
 
     // Per-climb time
     estTimeLabel: 'Tiempo estimado',
+
+    // Track comparison
+    compareBtn:       'Comparar +',
+    clearCompare:     'Limpiar comparación',
+    comparisonTitle:  'Comparación de Rutas',
+    trackALabel:      'Ruta A',
+    trackBLabel:      'Ruta B',
+    vsLabel:          'vs',
+    noCompareTrack:   'Carga una segunda ruta para comparar',
+    colAGain:         'A ↑',
+    colALoss:         'A ↓',
+    colAAvg:          'A pend.',
+    colBGain:         'B ↑',
+    colBLoss:         'B ↓',
+    colBAvg:          'B pend.',
   },
 };
 
