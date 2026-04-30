@@ -117,7 +117,7 @@ const locales = {
     dragHint:         'Arrastra para seleccionar\u00a0·\u00a0Doble clic para borrar',
     climbZone:        'Zona de subida',
     descentZone:      'Zona de bajada',
-    slopeLabel:       'Pendiente: llano → moderado → empinado → extremo',
+    slopeLabel:       'Pendiente: llano → moderado → inclinado → extremo',
 
     // Selection panel
     selectionLabel:  'Selección:',
@@ -164,14 +164,14 @@ const locales = {
 
     // Terrain distribution
     terrainDist: 'Distribución del Terreno',
-    steepDown:   'Muy empinado ↓',
+    steepDown:   'Muy inclinado ↓',
     modDown:     'Mod ↓',
     flat:        'Llano',
     modUp:       'Mod ↑',
-    steepUp:     'Muy empinado ↑',
+    steepUp:     'Muy inclinado ↑',
 
     // Steepest sections
-    steepestSections: 'Tramos más Empinados',
+    steepestSections: 'Tramos con más inclinación',
 
     // Per-km splits
     perKmSplits: 'Parciales por Km',
@@ -181,7 +181,7 @@ const locales = {
     colMin:      'Mín',
     colMax:      'Máx',
     colAvg:      'Pend. media',
-    splitsLegendSteep:    'Empinado (|media| > 10%)',
+    splitsLegendSteep:    'Inclinado (|media| > 10%)',
     splitsLegendModerate: 'Moderado (5–10%)',
     copyLink:    'Copiar enlace',
     linkCopied:  '¡Copiado!',
