@@ -96,6 +96,19 @@ const locales = {
     splitsLegendModerate: 'Moderate (5–10%)',
     copyLink:    'Copy link',
     linkCopied:  'Copied!',
+
+    // Finish time estimate
+    labelEstTime: 'Est. Finish Time',
+    labelPaceAt:  'at',
+    unitMinKm:    'min/km',
+
+    // Runnable vs hike
+    runnableHikeTitle: 'Runnable vs Hike',
+    runnableLabel: 'Runnable',
+    hikeLabel:     'Hike (≥20% grade)',
+
+    // Per-climb time
+    estTimeLabel: 'Est. time',
   },
 
   es: {
@@ -185,6 +198,19 @@ const locales = {
     splitsLegendModerate: 'Moderado (5–10%)',
     copyLink:    'Copiar enlace',
     linkCopied:  '¡Copiado!',
+
+    // Finish time estimate
+    labelEstTime: 'Tiempo estimado',
+    labelPaceAt:  'a',
+    unitMinKm:    'min/km',
+
+    // Runnable vs hike
+    runnableHikeTitle: 'Corrible vs Senderismo',
+    runnableLabel: 'Corrible',
+    hikeLabel:     'Senderismo (≥20% pend.)',
+
+    // Per-climb time
+    estTimeLabel: 'Tiempo estimado',
   },
 };
 

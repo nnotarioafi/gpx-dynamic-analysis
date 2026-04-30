@@ -5,7 +5,7 @@
  */
 
 import { parseGPX } from './gpx-parser.js';
-import { enrichPoints, computeStats, analyzeClimbs, selectionStats, terrainDistribution, steepestSections, perKmSplits, cumulativeGainLoss } from './track-analysis.js';
+import { enrichPoints, computeStats, analyzeClimbs, selectionStats, terrainDistribution, steepestSections, perKmSplits, cumulativeGainLoss, estimateFinishTime, climbEstimatedTime, raceDifficulty, runnableVsHike } from './track-analysis.js';
 import { ElevationChart } from './chart.js';
 import { t, getLocale, setLocale, initLocale } from './i18n.js';
 
@@ -14,6 +14,9 @@ import { t, getLocale, setLocale, initLocale } from './i18n.js';
 // ---------------------------------------------------------------------------
 let enriched = [];
 let chart = null;
+
+const PACE_STORAGE_KEY = 'gpx-flat-pace';
+let flatPace = parseFloat(localStorage.getItem(PACE_STORAGE_KEY)) || 8;
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -50,9 +53,11 @@ document.addEventListener('localechange', () => {
   if (enriched.length) {
     renderStats();
     renderTerrain();
+    renderRunnableHike();
     renderSteepest();
     renderSplits();
     renderClimbs();
+    renderTrackDifficultyBadge();
   }
   renderDropdown();
 });
@@ -128,9 +133,10 @@ function applyTranslations() {
   setText('descents-header-text', t('descentsHeader'));
 
   // Terrain, Steepest, Splits panel titles
-  setText('terrain-panel-title',  t('terrainDist'));
-  setText('steepest-panel-title', t('steepestSections'));
-  setText('splits-panel-title',   t('perKmSplits'));
+  setText('terrain-panel-title',       t('terrainDist'));
+  setText('runnable-hike-panel-title', t('runnableHikeTitle'));
+  setText('steepest-panel-title',      t('steepestSections'));
+  setText('splits-panel-title',        t('perKmSplits'));
 }
 
 function setText(id, text) {
@@ -331,9 +337,11 @@ function processGPX(xmlString, filename) {
     setTimeout(() => {
       renderStats();
       renderTerrain();
+      renderRunnableHike();
       renderSteepest();
       renderSplits();
       renderClimbs();
+      renderTrackDifficultyBadge();
       initChart();
       overlay.classList.add('hidden');
     }, 0);
@@ -356,12 +364,93 @@ function renderStats() {
     { label: t('labelNetEle'),   value: s.netElevationM !== null ? netSign + Math.round(s.netElevationM) : '—', unit: s.netElevationM !== null ? t('unitM') : '', accent: s.netElevationM > 0 ? 'gain' : s.netElevationM < 0 ? 'loss' : '' },
   ];
 
+  const est = estimateFinishTime(enriched, flatPace);
+  const estDisplay = est.hours > 0
+    ? `${est.hours}h ${String(est.minutes).padStart(2, '0')}m`
+    : `${est.minutes} min`;
+
   statsGrid.innerHTML = cards.map(c => `
     <div class="stat-card ${c.accent ? 'stat-card--' + c.accent : ''}">
       <span class="stat-label">${c.label}</span>
       <span class="stat-value">${c.value}<span class="stat-unit">${c.unit}</span></span>
     </div>
-  `).join('');
+  `).join('') + `
+    <div class="stat-card stat-card--time stat-card--wide">
+      <span class="stat-label">${t('labelEstTime')}</span>
+      <div class="stat-time-row">
+        <span class="stat-value" id="est-time-value">${estDisplay}</span>
+        <label class="pace-label" for="pace-input">
+          ${t('labelPaceAt')}
+          <input id="pace-input" class="pace-input" type="number" min="4" max="20" step="0.5" value="${flatPace}">
+          ${t('unitMinKm')}
+        </label>
+      </div>
+    </div>
+  `;
+
+  // Wire up the pace input
+  const paceInput = document.getElementById('pace-input');
+  if (paceInput) {
+    paceInput.addEventListener('change', () => {
+      const v = parseFloat(paceInput.value);
+      if (v >= 4 && v <= 20) {
+        flatPace = v;
+        localStorage.setItem(PACE_STORAGE_KEY, v);
+        // Re-render just the time value + climb cards
+        const newEst = estimateFinishTime(enriched, flatPace);
+        const newDisplay = newEst.hours > 0
+          ? `${newEst.hours}h ${String(newEst.minutes).padStart(2, '0')}m`
+          : `${newEst.minutes} min`;
+        const timeEl = document.getElementById('est-time-value');
+        if (timeEl) timeEl.textContent = newDisplay;
+        renderClimbs(); // re-renders climb cards that show per-climb time
+      }
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Track-level difficulty badge (in the track header)
+// ---------------------------------------------------------------------------
+function renderTrackDifficultyBadge() {
+  const el = document.getElementById('track-difficulty-badge');
+  if (!el || !enriched.length) return;
+  const s = computeStats(enriched);
+  const level = raceDifficulty(s.itraKmEffort);
+  const labelKey = 'diff' + level.charAt(0).toUpperCase() + level.slice(1);
+  el.className = `difficulty-badge difficulty-badge--${level}`;
+  el.textContent = t(labelKey);
+}
+
+// ---------------------------------------------------------------------------
+// Runnable vs Hike bar
+// ---------------------------------------------------------------------------
+function renderRunnableHike() {
+  const el = document.getElementById('runnable-hike-bar');
+  if (!el) return;
+  const rv = runnableVsHike(enriched);
+  if (!rv) { el.innerHTML = ''; return; }
+
+  el.innerHTML = `
+    <div class="runnable-bar-track">
+      <div class="runnable-seg runnable-seg--run" style="flex:${rv.runnablePct}"
+           title="${t('runnableLabel')}: ${rv.runnablePct.toFixed(1)}%">
+        ${rv.runnablePct > 10 ? rv.runnablePct.toFixed(0) + '%' : ''}
+      </div>
+      <div class="runnable-seg runnable-seg--hike" style="flex:${rv.hikePct}"
+           title="${t('hikeLabel')}: ${rv.hikePct.toFixed(1)}%">
+        ${rv.hikePct > 10 ? rv.hikePct.toFixed(0) + '%' : ''}
+      </div>
+    </div>
+    <div class="terrain-legend">
+      <span class="terrain-legend-item">
+        <span class="terrain-dot runnable-dot--run"></span>${t('runnableLabel')} ${rv.runnablePct.toFixed(1)}%
+      </span>
+      <span class="terrain-legend-item">
+        <span class="terrain-dot runnable-dot--hike"></span>${t('hikeLabel')} ${rv.hikePct.toFixed(1)}%
+      </span>
+    </div>
+  `;
 }
 
 // ---------------------------------------------------------------------------
@@ -419,6 +508,7 @@ function climbCard(seg, n, type) {
   const colorClass = isClimb ? 'climb-card--up' : 'climb-card--down';
   const eleLabel  = isClimb ? t('gainLabel') : t('lossLabel');
   const eleVal    = isClimb ? Math.round(seg.gainM ?? seg.eleDiffM) : Math.round(seg.lossM ?? seg.eleDiffM);
+  const timeEst   = climbEstimatedTime(seg, type, flatPace);
 
   return `
     <div class="climb-card ${colorClass}">
@@ -432,6 +522,7 @@ function climbCard(seg, n, type) {
         <span>${t('lengthLabel')}: <strong>${seg.lengthKm.toFixed(2)} km</strong></span>
         <span>${t('avgLabel')}: <strong>${seg.avgGradientPct.toFixed(1)}%</strong></span>
         <span>${t('maxLabel')}: <strong>${seg.maxGradientPct.toFixed(1)}%</strong></span>
+        <span class="climb-time-est">${t('estTimeLabel')}: <strong>${timeEst}</strong></span>
       </div>
     </div>
   `;

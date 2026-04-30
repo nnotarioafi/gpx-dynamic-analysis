@@ -425,3 +425,85 @@ export function cumulativeGainLoss(enriched) {
 
   return { dists, cumGain, cumLoss };
 }
+
+// ---------------------------------------------------------------------------
+// Finish-time estimate — Naismith–Rishbeth rule
+//
+// flatPaceMinKm  : runner's flat pace in min/km (default 8)
+// ascentBonus    : added minutes per 10 m gain  (default 1)
+// descentBonus   : added minutes per 10 m loss  (default 0.5)
+//
+// Returns { totalMinutes, hours, minutes } for the whole track.
+// ---------------------------------------------------------------------------
+export function estimateFinishTime(enriched, flatPaceMinKm = 8, ascentBonus = 1, descentBonus = 0.5) {
+  const s = computeStats(enriched);
+  const baseMin = s.totalDistKm * flatPaceMinKm;
+  const ascentMin = (s.elevationGainM / 10) * ascentBonus;
+  const descentMin = (s.elevationLossM / 10) * descentBonus;
+  const totalMinutes = baseMin + ascentMin + descentMin;
+  return {
+    totalMinutes,
+    hours: Math.floor(totalMinutes / 60),
+    minutes: Math.round(totalMinutes % 60),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Per-climb estimated time (reuses Naismith formula for a single segment)
+// seg: one element from analyzeClimbs() output (climb or descent)
+// type: 'climb' | 'descent'
+// ---------------------------------------------------------------------------
+export function climbEstimatedTime(seg, type, flatPaceMinKm = 8) {
+  const baseMin = seg.lengthKm * flatPaceMinKm;
+  const bonus = type === 'climb'
+    ? (seg.gainM / 10) * 1       // 1 min per 10 m up
+    : (seg.lossM / 10) * 0.5;    // 0.5 min per 10 m down
+  const total = baseMin + bonus;
+  const h = Math.floor(total / 60);
+  const m = Math.round(total % 60);
+  return h > 0 ? `~${h}h ${m}m` : `~${m} min`;
+}
+
+// ---------------------------------------------------------------------------
+// Overall race difficulty badge
+// Based on ITRA km-effort thresholds:
+//   ≤25 → easy  |  25–45 → moderate  |  45–75 → hard  |  >75 → extreme
+// ---------------------------------------------------------------------------
+export function raceDifficulty(itraKmEffort) {
+  if (itraKmEffort <= 25) return 'easy';
+  if (itraKmEffort <= 45) return 'moderate';
+  if (itraKmEffort <= 75) return 'hard';
+  return 'extreme';
+}
+
+// ---------------------------------------------------------------------------
+// Runnable vs hikeable breakdown
+// Runnable  : |grade| < 20%
+// Hike      : grade ≥ 20% (uphills only — steep ups are the limiter)
+// Returns { runnablePct, hikePct } (0-100)
+// ---------------------------------------------------------------------------
+export function runnableVsHike(enriched) {
+  const withEle = enriched.filter(p => p.ele !== null);
+  if (withEle.length < 2) return null;
+
+  let runnable = 0;
+  let hike = 0;
+
+  for (let i = 1; i < withEle.length; i++) {
+    const dEle  = withEle[i].ele  - withEle[i - 1].ele;
+    const dDist = (withEle[i].dist - withEle[i - 1].dist) * 1000; // m
+    if (dDist <= 0) continue;
+
+    const gradPct = (dEle / dDist) * 100;
+    // Only uphill steep sections force a hike; downhill and flat are runnable
+    if (gradPct >= 20) hike += dDist;
+    else               runnable += dDist;
+  }
+
+  const total = runnable + hike;
+  if (total === 0) return null;
+  return {
+    runnablePct: (runnable / total) * 100,
+    hikePct:     (hike     / total) * 100,
+  };
+}

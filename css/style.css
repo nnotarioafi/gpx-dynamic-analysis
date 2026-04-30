@@ -1007,3 +1007,94 @@ canvas {
   padding: 4px 10px;
   border-radius: var(--radius-sm);
 }
+
+/* ============================================================
+   Estimated Finish Time card
+   ============================================================ */
+.stat-card--time {
+  border-left: 3px solid #a78bfa; /* purple accent */
+}
+
+/* Span full grid width */
+.stat-card--wide {
+  grid-column: 1 / -1;
+}
+
+.stat-time-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pace-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.pace-input {
+  width: 52px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 6px;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.pace-input:focus {
+  border-color: #a78bfa;
+}
+
+/* ============================================================
+   Runnable vs Hike bar
+   ============================================================ */
+.panel--runnable-hike { margin-bottom: 16px; }
+
+.runnable-bar-track {
+  display: flex;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.runnable-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.85);
+  transition: flex 0.3s ease;
+}
+
+.runnable-seg--run  { background: #38bdf8; }
+.runnable-seg--hike { background: #f97316; }
+
+.runnable-dot--run  { background: #38bdf8; }
+.runnable-dot--hike { background: #f97316; }
+
+/* ============================================================
+   Per-climb time estimate
+   ============================================================ */
+.climb-time-est {
+  font-style: italic;
+  color: var(--text-muted);
+}
+.climb-time-est strong {
+  color: #a78bfa;
+  font-style: normal;
+}
