@@ -6,5 +6,37 @@
     "name_es": "Asomadero Corta",
     "description_en": "Trail run in southern Spain · 11.8 km · +829 m",
     "description_es": "Carrera de montaña en el sur de España · 11.8 km · +829 m"
+  },
+  {
+    "id": "scx-42k",
+    "file": "samples/scx-42k.gpx",
+    "name_en": "SCX Anaga XTRM 42K",
+    "name_es": "SCX Anaga XTRM 42K",
+    "description_en": "Santa Cruz Extreme 2026 · 41.6 km · +3,029 m",
+    "description_es": "Santa Cruz Extreme 2026 · 41,6 km · +3.029 m"
+  },
+  {
+    "id": "scx-25k",
+    "file": "samples/scx-25k.gpx",
+    "name_en": "SCX Anaga XTRM 25K",
+    "name_es": "SCX Anaga XTRM 25K",
+    "description_en": "Santa Cruz Extreme 2026 · 25.5 km · +1,460 m",
+    "description_es": "Santa Cruz Extreme 2026 · 25,5 km · +1.460 m"
+  },
+  {
+    "id": "scx-18k",
+    "file": "samples/scx-18k.gpx",
+    "name_en": "SCX Anaga XTRM 18K",
+    "name_es": "SCX Anaga XTRM 18K",
+    "description_en": "Santa Cruz Extreme 2026 · 18.0 km · +1,135 m",
+    "description_es": "Santa Cruz Extreme 2026 · 18,0 km · +1.135 m"
+  },
+  {
+    "id": "scx-10k",
+    "file": "samples/scx-10k.gpx",
+    "name_en": "SCX Anaga XTRM 10K",
+    "name_es": "SCX Anaga XTRM 10K",
+    "description_en": "Santa Cruz Extreme 2026 · 10.0 km · +361 m",
+    "description_es": "Santa Cruz Extreme 2026 · 10,0 km · +361 m"
   }
 ]
