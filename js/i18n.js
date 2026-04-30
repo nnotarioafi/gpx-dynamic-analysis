@@ -88,12 +88,16 @@ const locales = {
 
     // Per-km splits
     perKmSplits: 'Per-Km Splits',
-    colKm:   'Km',
-    colGain: '↑ Gain',
-    colLoss: '↓ Loss',
-    colMin:  'Min',
-    colMax:  'Max',
-    colAvg:  'Avg %',
+    colKm:       'Km',
+    colGain:     '↑ Gain',
+    colLoss:     '↓ Loss',
+    colMin:      'Min',
+    colMax:      'Max',
+    colAvg:      'Avg grade',
+    splitsLegendSteep:    'Steep (|avg| > 10%)',
+    splitsLegendModerate: 'Moderate (5–10%)',
+    copyLink:    'Copy link',
+    linkCopied:  'Copied!',
   },
 
   es: {
@@ -175,12 +179,16 @@ const locales = {
 
     // Per-km splits
     perKmSplits: 'Parciales por Km',
-    colKm:   'Km',
-    colGain: '↑ Subida',
-    colLoss: '↓ Bajada',
-    colMin:  'Mín',
-    colMax:  'Máx',
-    colAvg:  'Media %',
+    colKm:       'Km',
+    colGain:     '↑ Subida',
+    colLoss:     '↓ Bajada',
+    colMin:      'Mín',
+    colMax:      'Máx',
+    colAvg:      'Pend. media',
+    splitsLegendSteep:    'Empinado (|media| > 10%)',
+    splitsLegendModerate: 'Moderado (5–10%)',
+    copyLink:    'Copiar enlace',
+    linkCopied:  '¡Copiado!',
   },
 };
 

@@ -182,13 +182,17 @@ function renderDropdown() {
       const name = lang === 'es' ? s.name_es : s.name_en;
       const desc = lang === 'es' ? s.description_es : s.description_en;
       return `
-        <li role="option" aria-selected="${isActive}">
+        <li class="split-dropdown__row" role="option" aria-selected="${isActive}">
           <button class="split-dropdown__item${isActive ? ' active' : ''}" data-id="${s.id}" data-file="${s.file}" type="button">
             <svg class="split-dropdown__check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             <span class="split-dropdown__info">
               <span class="split-dropdown__name">${name}</span>
               <span class="split-dropdown__desc">${desc}</span>
             </span>
+          </button>
+          <button class="split-dropdown__share" data-id="${s.id}" type="button" title="${t('copyLink')}" aria-label="${t('copyLink')}">
+            <svg class="share-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <svg class="share-icon share-icon--copied" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
           </button>
         </li>`;
     }).join('');
@@ -200,6 +204,35 @@ function renderDropdown() {
       closeDropdown();
     });
   });
+
+  dropdown.querySelectorAll('.split-dropdown__share').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      copyShareLink(btn.dataset.id, btn);
+    });
+  });
+}
+
+function copyShareLink(sampleId, btn) {
+  const url = new URL(location.href);
+  url.search = '';
+  url.searchParams.set('sample', sampleId);
+  const urlStr = url.toString();
+
+  const doFeedback = () => {
+    btn.classList.add('copied');
+    btn.title = t('linkCopied');
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.title = t('copyLink');
+    }, 1500);
+  };
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(urlStr).then(doFeedback).catch(() => prompt(t('copyLink'), urlStr));
+  } else {
+    prompt(t('copyLink'), urlStr);
+  }
 }
 
 function openDropdown() {
@@ -468,6 +501,10 @@ function renderSplits() {
   if (!body || !splits.length) return;
 
   body.innerHTML = `
+    <div class="splits-legend">
+      <span class="splits-legend__item splits-legend__item--steep"></span>${t('splitsLegendSteep')}
+      <span class="splits-legend__item splits-legend__item--moderate"></span>${t('splitsLegendModerate')}
+    </div>
     <table class="splits-table">
       <thead>
         <tr>
@@ -481,14 +518,16 @@ function renderSplits() {
       </thead>
       <tbody>
         ${splits.map(s => {
-          const gradCls = Math.abs(s.avgGrad) > 10 ? 'steep' : Math.abs(s.avgGrad) > 5 ? 'moderate' : '';
-          return `<tr class="${gradCls}">
+          const abs = Math.abs(s.avgGrad);
+          const gradCls = abs > 10 ? 'steep' : abs > 5 ? 'moderate' : '';
+          const title = gradCls === 'steep' ? t('splitsLegendSteep') : gradCls === 'moderate' ? t('splitsLegendModerate') : '';
+          return `<tr class="${gradCls}" title="${title}">
             <td>${s.km}</td>
             <td class="gain-cell">${s.gain}</td>
             <td class="loss-cell">${s.loss}</td>
             <td>${s.minEle ?? '—'}</td>
             <td>${s.maxEle ?? '—'}</td>
-            <td>${s.avgGrad.toFixed(1)}</td>
+            <td>${s.avgGrad.toFixed(1)}%</td>
           </tr>`;
         }).join('')}
       </tbody>

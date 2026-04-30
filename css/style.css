@@ -293,6 +293,48 @@ strong { font-weight: 600; }
   text-overflow: ellipsis;
 }
 
+/* Dropdown row: wraps the load button + share button */
+.split-dropdown__row {
+  display: flex;
+  align-items: center;
+}
+
+.split-dropdown__row .split-dropdown__item {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Share button */
+.split-dropdown__share {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: 6px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.split-dropdown__share:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--bg-card-hover);
+}
+.split-dropdown__share.copied {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+/* show/hide the two SVG icons inside share button */
+.split-dropdown__share .share-icon--copied { display: none; }
+.split-dropdown__share.copied .share-icon         { display: none; }
+.split-dropdown__share.copied .share-icon--copied { display: block; }
+
 /* ============================================================
    Error banner
    ============================================================ */
@@ -917,6 +959,27 @@ canvas {
 
 .splits-table .gain-cell { color: var(--green); }
 .splits-table .loss-cell { color: var(--red); }
+
+.splits-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.splits-legend__item {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+.splits-legend__item--steep    { background: var(--red-dim);    border: 1px solid var(--red); }
+.splits-legend__item--moderate { background: var(--orange-dim); border: 1px solid var(--orange); }
 
 /* ============================================================
    Chart header right
