@@ -15,6 +15,11 @@ import { t, getLocale, setLocale, initLocale } from './i18n.js';
 let enriched = [];
 let chart = null;
 
+// Comparison state
+let enrichedB = null;
+let trackNameB = '';
+let samplesDataCompare = [];
+
 const REF_STORAGE_KEY = 'gpx-ref-race';
 
 function loadRefRace() {
@@ -52,6 +57,9 @@ const canvas          = document.getElementById('elevation-canvas');
 const climbsCount     = document.getElementById('climbs-count');
 const descentsCount   = document.getElementById('descents-count');
 const langToggle      = document.getElementById('lang-toggle');
+const comparisonSection = document.getElementById('comparison-section');
+const compareSplit    = document.getElementById('compare-split');
+const compareFileInput = document.getElementById('compare-file-input');
 
 // ---------------------------------------------------------------------------
 // i18n — init, toggle, re-apply on change
@@ -76,7 +84,9 @@ document.addEventListener('localechange', () => {
     renderClimbs();
     renderTrackDifficultyBadge();
   }
+  if (enrichedB) renderComparison();
   renderDropdown();
+  renderCompareDropdown();
 });
 
 function applyTranslations() {
@@ -96,6 +106,10 @@ function applyTranslations() {
   // Load GPX button
   const loadText = document.getElementById('load-gpx-text');
   if (loadText) loadText.textContent = t('loadGpx');
+
+  // Compare button
+  const compareText = document.getElementById('compare-btn-text');
+  if (compareText) compareText.textContent = t('compareBtn');
 
   // Upload area
   const uploadTitle = document.getElementById('upload-title');
@@ -361,6 +375,9 @@ function processGPX(xmlString, filename) {
       renderTrackDifficultyBadge();
       initChart();
       overlay.classList.add('hidden');
+      // Show compare button now that Track A is loaded
+      compareSplit.classList.add('visible');
+      initCompareButton();
     }, 0);
   });
 }
@@ -497,6 +514,7 @@ function updateSliderFill() {
 thresholdSlider.addEventListener('input', () => {
   updateSliderFill();
   renderClimbs();
+  if (enrichedB) renderCompareClimbs();
 });
 
 updateSliderFill();
@@ -667,6 +685,8 @@ function initChart() {
         const on = chart.toggleCumulative();
         cumBtn.classList.toggle('active', on);
         cumBtn.textContent = on ? t('hideCumulative') : t('showCumulative');
+        // Re-overlay Track B (only visible in standard mode)
+        if (enrichedB && !on) chart.drawSecondTrack(enrichedB);
       });
     }
   }
@@ -726,6 +746,442 @@ function showError(msg) {
   el.textContent = msg;
   el.classList.remove('hidden');
   setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+// ---------------------------------------------------------------------------
+// Track Comparison
+// ---------------------------------------------------------------------------
+
+// --- Compare split-button dropdown ---
+const compareChevron  = document.getElementById('compare-samples-chevron');
+const compareDropdown = document.getElementById('compare-samples-dropdown');
+
+function openCompareDropdown() {
+  compareDropdown.hidden = false;
+  compareChevron.setAttribute('aria-expanded', 'true');
+}
+function closeCompareDropdown() {
+  compareDropdown.hidden = true;
+  compareChevron.setAttribute('aria-expanded', 'false');
+}
+
+compareChevron.addEventListener('click', e => {
+  e.stopPropagation();
+  compareDropdown.hidden ? openCompareDropdown() : closeCompareDropdown();
+});
+
+document.addEventListener('click', e => {
+  if (compareSplit && !compareSplit.contains(e.target)) closeCompareDropdown();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeCompareDropdown();
+});
+
+compareFileInput.addEventListener('change', () => {
+  if (compareFileInput.files[0]) {
+    loadCompareFile(compareFileInput.files[0]);
+    compareFileInput.value = '';
+  }
+});
+
+function renderCompareDropdown() {
+  if (!compareDropdown) return;
+  const lang = getLocale();
+  if (!samplesDataCompare.length) {
+    compareDropdown.innerHTML = '<li class="split-dropdown__header">No samples available</li>';
+    return;
+  }
+  compareDropdown.innerHTML =
+    `<li class="split-dropdown__header">${lang === 'es' ? 'Rutas de ejemplo' : 'Sample routes'}</li>` +
+    samplesDataCompare.map(s => {
+      const name = lang === 'es' ? s.name_es : s.name_en;
+      const desc = lang === 'es' ? s.description_es : s.description_en;
+      return `
+        <li class="split-dropdown__row" role="option">
+          <button class="split-dropdown__item" data-id="${s.id}" data-file="${s.file}" type="button">
+            <svg class="split-dropdown__check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="visibility:hidden"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="split-dropdown__info">
+              <span class="split-dropdown__name">${name}</span>
+              <span class="split-dropdown__desc">${desc}</span>
+            </span>
+          </button>
+        </li>`;
+    }).join('');
+
+  compareDropdown.querySelectorAll('.split-dropdown__item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      loadCompareSampleFile(btn.dataset.file, btn.dataset.id);
+      closeCompareDropdown();
+    });
+  });
+}
+
+async function initCompareButton() {
+  if (!samplesDataCompare.length) {
+    samplesDataCompare = await loadSamplesManifest();
+  }
+  renderCompareDropdown();
+}
+
+async function loadCompareSampleFile(filePath) {
+  try {
+    const res = await fetch(filePath);
+    if (!res.ok) throw new Error(`Could not fetch ${filePath}`);
+    const text = await res.text();
+    const filename = filePath.split('/').pop();
+    processCompareGPX(text, filename);
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+function loadCompareFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      processCompareGPX(e.target.result, file.name);
+    } catch (err) {
+      showError(err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function processCompareGPX(xmlString, filename) {
+  const gpx = parseGPX(xmlString);
+  enrichedB = enrichPoints(gpx.points);
+  trackNameB = gpx.name !== 'Unnamed Track' ? gpx.name : filename.replace('.gpx', '');
+  renderComparison();
+}
+
+function clearCompareTrack() {
+  enrichedB = null;
+  trackNameB = '';
+  comparisonSection.classList.add('hidden');
+  comparisonSection.innerHTML = '';
+  // Re-render Track A chart without Track B overlay
+  if (chart) {
+    const threshold = parseInt(thresholdSlider.value, 10);
+    const { climbs, descents } = analyzeClimbs(enriched, threshold);
+    chart.setData(enriched, climbs, descents);
+  }
+}
+
+// --- Main comparison renderer ---
+function renderComparison() {
+  comparisonSection.classList.remove('hidden');
+  renderCompareHeader();
+  renderCompareStats();
+  renderCompareChart();
+  renderCompareTerrain();
+  renderCompareRunnable();
+  renderCompareClimbs();
+  renderCompareSplits();
+}
+
+function renderCompareHeader() {
+  const sA = computeStats(enriched);
+  const sB = computeStats(enrichedB);
+  const levelA = raceDifficulty(sA.itraKmEffort);
+  const levelB = raceDifficulty(sB.itraKmEffort);
+  const badgeA = `<span class="difficulty-badge difficulty-badge--${levelA}">${t('diff' + cap(levelA))}</span>`;
+  const badgeB = `<span class="difficulty-badge difficulty-badge--${levelB}">${t('diff' + cap(levelB))}</span>`;
+  const trkA = trackName.textContent || t('trackALabel');
+
+  let el = comparisonSection.querySelector('.compare-header');
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'compare-header';
+    comparisonSection.prepend(el);
+  }
+  el.innerHTML = `
+    <span class="compare-title">${t('comparisonTitle')}</span>
+    <div class="compare-track-names">
+      <span class="compare-track-a">${esc(trkA)}</span> ${badgeA}
+      <span class="compare-vs">${t('vsLabel')}</span>
+      <span class="compare-track-b">${esc(trackNameB)}</span> ${badgeB}
+    </div>
+    <button class="btn btn--ghost btn--clear" id="clear-compare-btn" type="button">${t('clearCompare')}</button>
+  `;
+  el.querySelector('#clear-compare-btn').addEventListener('click', clearCompareTrack);
+}
+
+function renderCompareStats() {
+  const sA = computeStats(enriched);
+  const sB = computeStats(enrichedB);
+  const paceA = currentTrailPace();
+  const estA = estimateFinishTime(enriched, paceA);
+  const estB = estimateFinishTime(enrichedB, paceA);
+  const estMinA = estA.hours * 60 + estA.minutes;
+  const estMinB = estB.hours * 60 + estB.minutes;
+
+  const fmtTime = (est) => est.hours > 0
+    ? `${est.hours}h ${String(est.minutes).padStart(2, '0')}m`
+    : `${est.minutes} min`;
+
+  const levelA = raceDifficulty(sA.itraKmEffort);
+  const levelB = raceDifficulty(sB.itraKmEffort);
+  const diffOrder = { easy: 0, moderate: 1, hard: 2, extreme: 3 };
+
+  // For each row: [label, valA, valB, lowerIsBetter]
+  const rows = [
+    [t('labelDistance'), sA.totalDistKm.toFixed(2) + ' km', sB.totalDistKm.toFixed(2) + ' km', sA.totalDistKm, sB.totalDistKm, true],
+    [t('labelItra'),     sA.itraKmEffort.toFixed(1) + ' km-e', sB.itraKmEffort.toFixed(1) + ' km-e', sA.itraKmEffort, sB.itraKmEffort, true],
+    [t('labelGain'),     Math.round(sA.elevationGainM) + ' m', Math.round(sB.elevationGainM) + ' m', sA.elevationGainM, sB.elevationGainM, true],
+    [t('labelLoss'),     Math.round(sA.elevationLossM) + ' m', Math.round(sB.elevationLossM) + ' m', sA.elevationLossM, sB.elevationLossM, true],
+    [t('labelMaxEle'),   Math.round(sA.maxElevationM) + ' m', Math.round(sB.maxElevationM) + ' m', sA.maxElevationM, sB.maxElevationM, true],
+    [t('labelEstTime'),  fmtTime(estA), fmtTime(estB), estMinA, estMinB, true],
+    [t('diffEasy') + '/' + t('diffModerate') + '…',
+      `<span class="difficulty-badge difficulty-badge--${levelA}">${t('diff' + cap(levelA))}</span>`,
+      `<span class="difficulty-badge difficulty-badge--${levelB}">${t('diff' + cap(levelB))}</span>`,
+      diffOrder[levelA], diffOrder[levelB], true],
+  ];
+
+  let sec = comparisonSection.querySelector('.compare-stats-section');
+  if (!sec) {
+    sec = document.createElement('div');
+    sec.className = 'compare-stats-section';
+    insertAfter(sec, comparisonSection.querySelector('.compare-header'));
+  }
+
+  const trkA = trackName.textContent || t('trackALabel');
+
+  sec.innerHTML = `
+    <table class="compare-stats-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="col-a">${esc(trkA)}</th>
+          <th class="col-b">${esc(trackNameB)}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(([label, dA, dB, numA, numB, lowerBetter]) => {
+          const aBetter = lowerBetter ? numA <= numB : numA >= numB;
+          const bBetter = lowerBetter ? numB <= numA : numB >= numA;
+          return `<tr>
+            <td>${label}</td>
+            <td class="col-a ${aBetter ? 'val-better' : ''}">${dA}</td>
+            <td class="col-b ${bBetter ? 'val-better' : ''}">${dB}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderCompareChart() {
+  let sec = comparisonSection.querySelector('.compare-chart-panel');
+  if (!sec) {
+    sec = document.createElement('div');
+    sec.className = 'compare-chart-panel';
+    insertAfter(sec, comparisonSection.querySelector('.compare-stats-section'));
+  }
+  const trkA = trackName.textContent || t('trackALabel');
+  sec.innerHTML = `
+    <h3 class="panel-title">${t('elevationProfile')}</h3>
+    <div class="compare-chart-legend">
+      <span class="legend-a">${esc(trkA)}</span>
+      <span class="legend-b">${esc(trackNameB)}</span>
+    </div>
+  `;
+  // Draw Track B overlay on the main chart
+  if (chart && !chart.showCumulative) {
+    chart.drawSecondTrack(enrichedB);
+  }
+}
+
+function renderCompareTerrain() {
+  const tdA = terrainDistribution(enriched);
+  const tdB = terrainDistribution(enrichedB);
+
+  let row = comparisonSection.querySelector('.compare-row.compare-terrain-row');
+  if (!row) {
+    row = document.createElement('div');
+    row.className = 'compare-row compare-terrain-row';
+    insertAfter(row, comparisonSection.querySelector('.compare-chart-panel'));
+  }
+
+  const trkA = trackName.textContent || t('trackALabel');
+  row.innerHTML = `
+    <div class="panel-half">
+      <h4 class="col-a">${esc(trkA)}</h4>
+      ${terrainBarHtml(tdA)}
+    </div>
+    <div class="panel-half">
+      <h4 class="col-b">${esc(trackNameB)}</h4>
+      ${terrainBarHtml(tdB)}
+    </div>
+  `;
+}
+
+function terrainBarHtml(td) {
+  if (!td) return '';
+  const segments = [
+    { labelKey: 'steepDown', pct: td.steepDown, cls: 'steep-down' },
+    { labelKey: 'modDown',   pct: td.modDown,   cls: 'mod-down' },
+    { labelKey: 'flat',      pct: td.flat,       cls: 'flat' },
+    { labelKey: 'modUp',     pct: td.modUp,      cls: 'mod-up' },
+    { labelKey: 'steepUp',   pct: td.steepUp,    cls: 'steep-up' },
+  ];
+  return `
+    <div class="terrain-bar-track">
+      ${segments.filter(s => s.pct > 0.5).map(s =>
+        `<div class="terrain-seg terrain-seg--${s.cls}" style="flex:${s.pct}" title="${t(s.labelKey)}: ${s.pct.toFixed(1)}%">
+          ${s.pct > 8 ? s.pct.toFixed(0) + '%' : ''}
+        </div>`
+      ).join('')}
+    </div>
+    <div class="terrain-legend">
+      ${segments.map(s =>
+        `<span class="terrain-legend-item"><span class="terrain-dot terrain-dot--${s.cls}"></span>${t(s.labelKey)} ${s.pct.toFixed(1)}%</span>`
+      ).join('')}
+    </div>
+  `;
+}
+
+function renderCompareRunnable() {
+  const rvA = runnableVsHike(enriched);
+  const rvB = runnableVsHike(enrichedB);
+
+  let row = comparisonSection.querySelector('.compare-row.compare-runnable-row');
+  if (!row) {
+    row = document.createElement('div');
+    row.className = 'compare-row compare-runnable-row';
+    insertAfter(row, comparisonSection.querySelector('.compare-terrain-row'));
+  }
+
+  const trkA = trackName.textContent || t('trackALabel');
+  row.innerHTML = `
+    <div class="panel-half">
+      <h4 class="col-a">${esc(trkA)}</h4>
+      ${runnableBarHtml(rvA)}
+    </div>
+    <div class="panel-half">
+      <h4 class="col-b">${esc(trackNameB)}</h4>
+      ${runnableBarHtml(rvB)}
+    </div>
+  `;
+}
+
+function runnableBarHtml(rv) {
+  if (!rv) return '';
+  return `
+    <div class="runnable-bar-track">
+      <div class="runnable-seg runnable-seg--run" style="flex:${rv.runnablePct}"
+           title="${t('runnableLabel')}: ${rv.runnablePct.toFixed(1)}%">
+        ${rv.runnablePct > 10 ? rv.runnablePct.toFixed(0) + '%' : ''}
+      </div>
+      <div class="runnable-seg runnable-seg--hike" style="flex:${rv.hikePct}"
+           title="${t('hikeLabel')}: ${rv.hikePct.toFixed(1)}%">
+        ${rv.hikePct > 10 ? rv.hikePct.toFixed(0) + '%' : ''}
+      </div>
+    </div>
+    <div class="terrain-legend">
+      <span class="terrain-legend-item">
+        <span class="terrain-dot runnable-dot--run"></span>${t('runnableLabel')} ${rv.runnablePct.toFixed(1)}%
+      </span>
+      <span class="terrain-legend-item">
+        <span class="terrain-dot runnable-dot--hike"></span>${t('hikeLabel')} ${rv.hikePct.toFixed(1)}%
+      </span>
+    </div>
+  `;
+}
+
+function renderCompareClimbs() {
+  const threshold = parseInt(thresholdSlider.value, 10);
+  const { climbs: climbsA, descents: descentsA } = analyzeClimbs(enriched, threshold);
+  const { climbs: climbsB, descents: descentsB } = analyzeClimbs(enrichedB, threshold);
+
+  let row = comparisonSection.querySelector('.compare-climbs');
+  if (!row) {
+    row = document.createElement('div');
+    row.className = 'compare-climbs';
+    insertAfter(row, comparisonSection.querySelector('.compare-runnable-row'));
+  }
+
+  const trkA = trackName.textContent || t('trackALabel');
+  row.innerHTML = `
+    <div class="climb-col">
+      <h4 class="col-a">${esc(trkA)}</h4>
+      <div class="climb-list-inner">
+        ${climbsA.length
+          ? climbsA.map((c, i) => climbCard(c, i + 1, 'climb')).join('')
+          : `<p class="empty-msg">${t('noClimbs')}</p>`}
+        ${descentsA.length
+          ? descentsA.map((c, i) => climbCard(c, i + 1, 'descent')).join('')
+          : ''}
+      </div>
+    </div>
+    <div class="climb-col">
+      <h4 class="col-b">${esc(trackNameB)}</h4>
+      <div class="climb-list-inner">
+        ${climbsB.length
+          ? climbsB.map((c, i) => climbCard(c, i + 1, 'climb')).join('')
+          : `<p class="empty-msg">${t('noClimbs')}</p>`}
+        ${descentsB.length
+          ? descentsB.map((c, i) => climbCard(c, i + 1, 'descent')).join('')
+          : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderCompareSplits() {
+  const splitsA = perKmSplits(enriched);
+  const splitsB = perKmSplits(enrichedB);
+  const maxLen  = Math.max(splitsA.length, splitsB.length);
+
+  let sec = comparisonSection.querySelector('.compare-splits-section');
+  if (!sec) {
+    sec = document.createElement('div');
+    sec.className = 'compare-splits-section';
+    comparisonSection.appendChild(sec);
+  }
+
+  const trkA = trackName.textContent || t('trackALabel');
+  sec.innerHTML = `
+    <h3 class="panel-title">${t('perKmSplits')}</h3>
+    <table class="compare-splits-table">
+      <thead>
+        <tr>
+          <th>${t('colKm')}</th>
+          <th class="col-a">${t('colAGain')}</th>
+          <th class="col-a">${t('colALoss')}</th>
+          <th class="col-a">${t('colAAvg')}</th>
+          <th class="col-b">${t('colBGain')}</th>
+          <th class="col-b">${t('colBLoss')}</th>
+          <th class="col-b">${t('colBAvg')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${Array.from({ length: maxLen }, (_, i) => {
+          const a = splitsA[i];
+          const b = splitsB[i];
+          return `<tr>
+            <td>${a ? a.km : b.km}</td>
+            <td class="col-a">${a ? a.gain : '—'}</td>
+            <td class="col-a">${a ? a.loss : '—'}</td>
+            <td class="col-a">${a ? a.avgGrad.toFixed(1) + '%' : '—'}</td>
+            <td class="col-b">${b ? b.gain : '—'}</td>
+            <td class="col-b">${b ? b.loss : '—'}</td>
+            <td class="col-b">${b ? b.avgGrad.toFixed(1) + '%' : '—'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// --- Comparison helpers ---
+function cap(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function insertAfter(newNode, refNode) {
+  if (!refNode) { comparisonSection.appendChild(newNode); return; }
+  refNode.parentNode.insertBefore(newNode, refNode.nextSibling);
 }
 
 // ---------------------------------------------------------------------------
