@@ -167,6 +167,133 @@ strong { font-weight: 600; }
 }
 
 /* ============================================================
+   Split button (Load GPX | ▾ samples)
+   ============================================================ */
+.split-btn {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.split-btn__main {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: var(--green);
+  color: #0a1a12;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-right: 1px solid rgba(0, 0, 0, 0.2);
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.split-btn__main:hover { background: #7ce8a4; }
+
+.split-btn__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 9px;
+  background: var(--green);
+  color: #0a1a12;
+  border: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.split-btn__chevron:hover,
+.split-btn__chevron[aria-expanded="true"] { background: #7ce8a4; }
+
+.split-btn__chevron svg {
+  transition: transform 0.18s;
+}
+.split-btn__chevron[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/* Dropdown */
+.split-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 260px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  list-style: none;
+  z-index: 200;
+  padding: 4px 0;
+}
+
+.split-dropdown__header {
+  padding: 6px 14px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.split-dropdown__sep {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+.split-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  transition: background 0.12s;
+}
+.split-dropdown__item:hover { background: var(--bg-card-hover); }
+.split-dropdown__item.active { color: var(--green); }
+
+.split-dropdown__check {
+  width: 14px;
+  flex-shrink: 0;
+  color: var(--green);
+  opacity: 0;
+}
+.split-dropdown__item.active .split-dropdown__check { opacity: 1; }
+
+.split-dropdown__info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.split-dropdown__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.split-dropdown__item.active .split-dropdown__name { color: var(--green); }
+.split-dropdown__desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================================
    Error banner
    ============================================================ */
 .error-banner {
@@ -816,61 +943,4 @@ canvas {
   letter-spacing: 0.05em;
   padding: 4px 10px;
   border-radius: var(--radius-sm);
-}
-
-/* ============================================================
-   Sample picker
-   ============================================================ */
-.sample-picker {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.sample-picker-title {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.sample-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.sample-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 8px 14px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  text-align: left;
-}
-
-.sample-btn:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--blue);
-}
-
-.sample-btn:active {
-  background: var(--blue-dim);
-}
-
-.sample-btn__name {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.sample-btn__desc {
-  font-size: 11px;
-  color: var(--text-muted);
 }

@@ -22,29 +22,31 @@
         <span id="app-title-text">GPX Dynamic Analysis</span>
       </div>
       <button id="lang-toggle" class="btn btn--ghost btn--lang" type="button">ES</button>
-      <label id="load-gpx-btn" class="btn btn--primary" for="file-input">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <span id="load-gpx-text">Load GPX</span>
-      </label>
-      <input type="file" id="file-input" accept=".gpx,application/gpx+xml,text/xml" class="sr-only" />
+
+      <!-- Split button: Load GPX | ▾ samples -->
+      <div class="split-btn" id="load-split">
+        <label class="split-btn__main" for="file-input" id="load-gpx-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span id="load-gpx-text">Load GPX</span>
+        </label>
+        <button class="split-btn__chevron" id="samples-chevron" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Select sample route">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <input type="file" id="file-input" accept=".gpx,application/gpx+xml,text/xml" class="sr-only" />
+        <ul class="split-dropdown" id="samples-dropdown" role="listbox" hidden></ul>
+      </div>
     </div>
   </header>
 
   <!-- Error banner -->
   <div id="error-msg" class="error-banner hidden"></div>
 
-  <!-- Upload area + sample picker -->
+  <!-- Upload area -->
   <section class="upload-section" id="drop-zone">
     <div class="upload-inner">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <p id="upload-title" class="upload-title">Drop your GPX file here</p>
-      <p id="upload-sub" class="upload-sub">or click <strong>Load GPX</strong> in the header</p>
-
-      <!-- Sample picker -->
-      <div class="sample-picker" id="sample-picker">
-        <p id="sample-picker-title" class="sample-picker-title">Or try a sample route</p>
-        <div id="sample-list" class="sample-list"></div>
-      </div>
+      <p id="upload-sub" class="upload-sub">or click <strong id="upload-sub-btn">Load GPX</strong> in the header</p>
     </div>
   </section>
 

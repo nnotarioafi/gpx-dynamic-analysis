@@ -93,17 +93,22 @@ export class ElevationChart {
 
     if (this.enriched.length < 2) return;
 
-    this._drawGrid();
-    this._drawClimbBands();
-    this._drawDescentBands();
-    this._drawProfile();
-    this._drawAxes();
-    if (this.showCumulative && this.cumulativeData) this._drawCumulative();
+    if (this.showCumulative && this.cumulativeData) {
+      this._drawCumulativeGrid();
+      this._drawAxes();
+      this._drawCumulative();
+    } else {
+      this._drawElevationGrid();
+      this._drawClimbBands();
+      this._drawDescentBands();
+      this._drawProfile();
+      this._drawAxes();
+    }
     this._drawSelection();
     if (this.hoverX !== null) this._drawCrosshair(this.hoverX);
   }
 
-  _drawGrid() {
+  _drawElevationGrid() {
     const { ctx } = this;
     const eles = this.enriched.map(p => p.ele);
     const minEle = Math.min(...eles);
@@ -136,6 +141,49 @@ export class ElevationChart {
 
     // Vertical grid lines (distance)
     const maxDist = this.enriched[this.enriched.length - 1].dist;
+    const dStep = niceStep(maxDist, 6);
+    ctx.textAlign = 'center';
+    for (let d = 0; d <= maxDist; d += dStep) {
+      const x = this._distToX(d);
+      ctx.beginPath();
+      ctx.moveTo(x, this.margin.top);
+      ctx.lineTo(x, this.margin.top + this.chartH);
+      ctx.stroke();
+      ctx.fillText(d.toFixed(1) + 'km', x, this.margin.top + this.chartH + 18);
+    }
+
+    ctx.restore();
+  }
+
+  _drawCumulativeGrid() {
+    const { ctx } = this;
+    const { cumGain, cumLoss } = this.cumulativeData;
+    const maxVal = Math.max(cumGain[cumGain.length - 1], cumLoss[cumLoss.length - 1], 1);
+    const valToY = v => this.margin.top + this.chartH - (v / maxVal) * this.chartH;
+
+    const step = niceStep(maxVal, 5);
+    const maxDist = this.enriched[this.enriched.length - 1].dist;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '11px monospace';
+
+    // Horizontal grid lines
+    ctx.textAlign = 'right';
+    for (let v = 0; v <= maxVal + step; v += step) {
+      const y = valToY(v);
+      if (y < this.margin.top - 2) break;
+      ctx.beginPath();
+      ctx.moveTo(this.margin.left, y);
+      ctx.lineTo(this.margin.left + this.chartW, y);
+      ctx.stroke();
+      ctx.fillText(Math.round(v) + 'm', this.margin.left - 8, y + 4);
+    }
+
+    // Vertical grid lines (distance)
     const dStep = niceStep(maxDist, 6);
     ctx.textAlign = 'center';
     for (let d = 0; d <= maxDist; d += dStep) {
@@ -255,15 +303,22 @@ export class ElevationChart {
     ctx.restore();
   }
 
+  _interpolateCumulative(distKm) {
+    const { dists, cumGain, cumLoss } = this.cumulativeData;
+    let i = dists.findIndex(d => d >= distKm);
+    if (i <= 0) return { gain: cumGain[0] ?? 0, loss: cumLoss[0] ?? 0 };
+    if (i >= dists.length) i = dists.length - 1;
+    const t = (distKm - dists[i - 1]) / (dists[i] - dists[i - 1]);
+    return {
+      gain: cumGain[i - 1] + t * (cumGain[i] - cumGain[i - 1]),
+      loss: cumLoss[i - 1] + t * (cumLoss[i] - cumLoss[i - 1]),
+    };
+  }
+
   _drawCrosshair(x) {
     if (x < this.margin.left || x > this.margin.left + this.chartW) return;
     const { ctx } = this;
     const distKm = this._xToDist(x);
-    // Find closest point
-    const pt = this.enriched.reduce((best, p) => {
-      return Math.abs(p.dist - distKm) < Math.abs(best.dist - distKm) ? p : best;
-    });
-    const py = this._eleToY(pt.ele);
 
     ctx.save();
     ctx.strokeStyle = 'rgba(255,255,255,0.4)';
@@ -274,22 +329,65 @@ export class ElevationChart {
     ctx.lineTo(x, this.margin.top + this.chartH);
     ctx.stroke();
 
-    // Dot on profile
-    ctx.beginPath();
-    ctx.arc(x, py, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff';
-    ctx.fill();
+    if (this.showCumulative && this.cumulativeData) {
+      // Cumulative mode: dot on gain line, tooltip shows gain + loss
+      const { gain, loss } = this._interpolateCumulative(distKm);
+      const maxVal = Math.max(
+        this.cumulativeData.cumGain[this.cumulativeData.cumGain.length - 1],
+        this.cumulativeData.cumLoss[this.cumulativeData.cumLoss.length - 1], 1
+      );
+      const valToY = v => this.margin.top + this.chartH - (v / maxVal) * this.chartH;
+      const gainY = valToY(gain);
+      const lossY = valToY(loss);
 
-    // Tooltip
-    const label = `${pt.dist.toFixed(2)} km | ${Math.round(pt.ele)} m`;
-    ctx.font = '12px monospace';
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    const tw = ctx.measureText(label).width + 12;
-    let tx = x + 8;
-    if (tx + tw > this.margin.left + this.chartW) tx = x - tw - 8;
-    ctx.fillRect(tx, py - 14, tw, 20);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(label, tx + 6, py + 1);
+      // Dot on gain line
+      ctx.beginPath();
+      ctx.arc(x, gainY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#63d28c';
+      ctx.fill();
+
+      // Dot on loss line
+      ctx.beginPath();
+      ctx.arc(x, lossY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#f87171';
+      ctx.fill();
+
+      // Tooltip anchored to gain dot
+      const label = `${distKm.toFixed(2)} km  ↑ ${Math.round(gain)} m  ↓ ${Math.round(loss)} m`;
+      ctx.font = '12px monospace';
+      ctx.setLineDash([]);
+      const tw = ctx.measureText(label).width + 12;
+      let tx = x + 8;
+      if (tx + tw > this.margin.left + this.chartW) tx = x - tw - 8;
+      const ty = Math.min(gainY, lossY) - 8;
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      ctx.fillRect(tx, ty - 14, tw, 20);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(label, tx + 6, ty + 1);
+    } else {
+      // Elevation mode: dot on profile, tooltip shows distance + elevation
+      const pt = this.enriched.reduce((best, p) =>
+        Math.abs(p.dist - distKm) < Math.abs(best.dist - distKm) ? p : best
+      );
+      const py = this._eleToY(pt.ele);
+
+      ctx.beginPath();
+      ctx.arc(x, py, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+
+      const label = `${pt.dist.toFixed(2)} km | ${Math.round(pt.ele)} m`;
+      ctx.font = '12px monospace';
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      const tw = ctx.measureText(label).width + 12;
+      let tx = x + 8;
+      if (tx + tw > this.margin.left + this.chartW) tx = x - tw - 8;
+      ctx.fillRect(tx, py - 14, tw, 20);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(label, tx + 6, py + 1);
+    }
+
     ctx.restore();
   }
 

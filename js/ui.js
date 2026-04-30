@@ -54,7 +54,7 @@ document.addEventListener('localechange', () => {
     renderSplits();
     renderClimbs();
   }
-  renderSamples();
+  renderDropdown();
 });
 
 function applyTranslations() {
@@ -139,46 +139,91 @@ function setText(id, text) {
 }
 
 // ---------------------------------------------------------------------------
-// Sample picker
+// Split-button sample dropdown
 // ---------------------------------------------------------------------------
+let samplesData = [];
+let activeSampleId = null;
+
+const chevron  = document.getElementById('samples-chevron');
+const dropdown = document.getElementById('samples-dropdown');
+
+async function initSampleDropdown() {
+  samplesData = await loadSamplesManifest();
+  renderDropdown();
+  // Auto-load from ?sample=id URL param
+  const param = new URLSearchParams(location.search).get('sample');
+  if (param) {
+    const s = samplesData.find(s => s.id === param);
+    if (s) { activeSampleId = s.id; loadSampleFile(s.file); }
+  }
+}
+
 async function loadSamplesManifest() {
   try {
     const res = await fetch('samples/index.json');
     if (!res.ok) return [];
     return await res.json();
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
-let samplesData = [];
-
-async function initSamplePicker() {
-  samplesData = await loadSamplesManifest();
-  renderSamples();
-}
-
-function renderSamples() {
-  const list = document.getElementById('sample-list');
-  if (!list) return;
+function renderDropdown() {
+  if (!dropdown) return;
   const lang = getLocale();
 
   if (!samplesData.length) {
-    list.innerHTML = '';
+    dropdown.innerHTML = '<li class="split-dropdown__header">No samples available</li>';
     return;
   }
 
-  list.innerHTML = samplesData.map(s => `
-    <button class="sample-btn" data-file="${s.file}" type="button">
-      <span class="sample-name">${lang === 'es' ? s.name_es : s.name_en}</span>
-      <span class="sample-desc">${lang === 'es' ? s.description_es : s.description_en}</span>
-    </button>
-  `).join('');
+  dropdown.innerHTML =
+    `<li class="split-dropdown__header">${lang === 'es' ? 'Rutas de ejemplo' : 'Sample routes'}</li>` +
+    samplesData.map(s => {
+      const isActive = s.id === activeSampleId;
+      const name = lang === 'es' ? s.name_es : s.name_en;
+      const desc = lang === 'es' ? s.description_es : s.description_en;
+      return `
+        <li role="option" aria-selected="${isActive}">
+          <button class="split-dropdown__item${isActive ? ' active' : ''}" data-id="${s.id}" data-file="${s.file}" type="button">
+            <svg class="split-dropdown__check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="split-dropdown__info">
+              <span class="split-dropdown__name">${name}</span>
+              <span class="split-dropdown__desc">${desc}</span>
+            </span>
+          </button>
+        </li>`;
+    }).join('');
 
-  list.querySelectorAll('.sample-btn').forEach(btn => {
-    btn.addEventListener('click', () => loadSampleFile(btn.dataset.file));
+  dropdown.querySelectorAll('.split-dropdown__item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeSampleId = btn.dataset.id;
+      loadSampleFile(btn.dataset.file);
+      closeDropdown();
+    });
   });
 }
+
+function openDropdown() {
+  dropdown.hidden = false;
+  chevron.setAttribute('aria-expanded', 'true');
+}
+
+function closeDropdown() {
+  dropdown.hidden = true;
+  chevron.setAttribute('aria-expanded', 'false');
+}
+
+chevron.addEventListener('click', e => {
+  e.stopPropagation();
+  dropdown.hidden ? openDropdown() : closeDropdown();
+});
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('load-split').contains(e.target)) closeDropdown();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeDropdown();
+});
 
 async function loadSampleFile(filePath) {
   try {
@@ -187,6 +232,7 @@ async function loadSampleFile(filePath) {
     const text = await res.text();
     const filename = filePath.split('/').pop();
     processGPX(text, filename);
+    renderDropdown(); // update checkmark
   } catch (err) {
     showError(err.message);
   }
@@ -195,11 +241,7 @@ async function loadSampleFile(filePath) {
 // ---------------------------------------------------------------------------
 // Upload / Drop
 // ---------------------------------------------------------------------------
-dropZone.addEventListener('click', e => {
-  // Don't trigger file input when clicking sample buttons
-  if (e.target.closest('.sample-btn')) return;
-  fileInput.click();
-});
+dropZone.addEventListener('click', () => fileInput.click());
 
 dropZone.addEventListener('dragover', e => {
   e.preventDefault();
@@ -216,7 +258,11 @@ dropZone.addEventListener('drop', e => {
 });
 
 fileInput.addEventListener('change', () => {
-  if (fileInput.files[0]) loadFile(fileInput.files[0]);
+  if (fileInput.files[0]) {
+    activeSampleId = null;
+    renderDropdown();
+    loadFile(fileInput.files[0]);
+  }
 });
 
 function loadFile(file) {
@@ -527,4 +573,4 @@ function showError(msg) {
 // ---------------------------------------------------------------------------
 // Bootstrap
 // ---------------------------------------------------------------------------
-initSamplePicker();
+initSampleDropdown();
