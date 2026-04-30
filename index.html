@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPX Dynamic Analysis</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="app-header__inner">
+      <div class="app-logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2 22 L7 10 L12 16 L17 6 L22 14 L26 8" stroke="#63d28c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="7" cy="10" r="2" fill="#63d28c"/>
+          <circle cx="17" cy="6" r="2" fill="#f97316"/>
+          <circle cx="26" cy="8" r="2" fill="#38bdf8"/>
+        </svg>
+        <span>GPX Dynamic Analysis</span>
+      </div>
+      <label class="btn btn--primary" for="file-input">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Load GPX
+      </label>
+      <input type="file" id="file-input" accept=".gpx,application/gpx+xml,text/xml" class="sr-only" />
+    </div>
+  </header>
+
+  <!-- Error banner -->
+  <div id="error-msg" class="error-banner hidden"></div>
+
+  <!-- Upload area -->
+  <section class="upload-section" id="drop-zone">
+    <div class="upload-inner">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <p class="upload-title">Drop your GPX file here</p>
+      <p class="upload-sub">or click <strong>Load GPX</strong> in the header</p>
+    </div>
+  </section>
+
+  <!-- Main analysis (hidden until file loaded) -->
+  <main id="analysis-section" class="hidden">
+
+    <!-- Track title -->
+    <div class="track-title-bar">
+      <h2 id="track-name" class="track-name"></h2>
+    </div>
+
+    <!-- Stats + Climbs -->
+    <div class="panels-row">
+
+      <!-- Stats panel -->
+      <section class="panel panel--stats">
+        <h3 class="panel-title">Track Statistics</h3>
+        <div id="stats-grid" class="stats-grid"></div>
+      </section>
+
+      <!-- Climbs panel -->
+      <section class="panel panel--climbs">
+        <h3 class="panel-title">Climbs &amp; Descents Analysis</h3>
+
+        <div class="threshold-row">
+          <label for="threshold-slider" class="threshold-label">
+            Merge threshold
+            <span class="threshold-hint">Higher → fewer hills</span>
+          </label>
+          <div class="threshold-control">
+            <input type="range" id="threshold-slider" min="1" max="200" value="20" step="1" />
+            <span id="threshold-value" class="threshold-val">20 m</span>
+          </div>
+        </div>
+
+        <div class="climbs-columns">
+          <div class="climbs-col">
+            <div class="climbs-col-header climbs-col-header--up">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+              Climbs <span id="climbs-count" class="badge">0</span>
+            </div>
+            <div id="climbs-list" class="climbs-list"></div>
+          </div>
+          <div class="climbs-col">
+            <div class="climbs-col-header climbs-col-header--down">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              Descents <span id="descents-count" class="badge">0</span>
+            </div>
+            <div id="descents-list" class="climbs-list"></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Elevation chart -->
+    <section class="panel panel--chart">
+      <div class="chart-header">
+        <h3 class="panel-title">Elevation Profile</h3>
+        <span class="chart-hint">Drag to select a range &nbsp;·&nbsp; Double-click to clear</span>
+      </div>
+
+      <div class="chart-legend">
+        <span class="legend-item legend-item--climb">Climb zone</span>
+        <span class="legend-item legend-item--descent">Descent zone</span>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="elevation-canvas"></canvas>
+      </div>
+
+      <!-- Selection stats -->
+      <div id="selection-panel" class="selection-panel hidden">
+        <div class="sel-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          Selection: <strong id="sel-range">—</strong>
+        </div>
+        <div class="sel-stats">
+          <div class="sel-stat">
+            <span class="sel-stat-label">Distance</span>
+            <span id="sel-distance" class="sel-stat-value">—</span>
+          </div>
+          <div class="sel-stat sel-stat--gain">
+            <span class="sel-stat-label">▲ Gain</span>
+            <span id="sel-gain" class="sel-stat-value">—</span>
+          </div>
+          <div class="sel-stat sel-stat--loss">
+            <span class="sel-stat-label">▼ Loss</span>
+            <span id="sel-loss" class="sel-stat-value">—</span>
+          </div>
+          <div class="sel-stat">
+            <span class="sel-stat-label">Avg Ascent Rate</span>
+            <span id="sel-ascent-rate" class="sel-stat-value">—</span>
+          </div>
+          <div class="sel-stat">
+            <span class="sel-stat-label">Avg Descent Rate</span>
+            <span id="sel-descent-rate" class="sel-stat-value">—</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module" src="js/ui.js"></script>
+</body>
+</html>

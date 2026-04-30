@@ -1,0 +1,240 @@
+/**
+ * track-analysis.js
+ * Computes track statistics and climb analysis from parsed GPX points.
+ */
+
+// ---------------------------------------------------------------------------
+// Haversine distance between two lat/lon points, returns km
+// ---------------------------------------------------------------------------
+export function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth radius km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function toRad(deg) {
+  return (deg * Math.PI) / 180;
+}
+
+// ---------------------------------------------------------------------------
+// Build enriched point array with cumulative distance and smoothed elevation
+// ---------------------------------------------------------------------------
+export function enrichPoints(points) {
+  const enriched = [];
+  let cumDist = 0;
+
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    if (i > 0) {
+      const prev = points[i - 1];
+      cumDist += haversine(prev.lat, prev.lon, p.lat, p.lon);
+    }
+    enriched.push({ ...p, dist: cumDist });
+  }
+  return enriched;
+}
+
+// ---------------------------------------------------------------------------
+// Basic track statistics (no time-based metrics)
+// ---------------------------------------------------------------------------
+export function computeStats(enriched) {
+  const withEle = enriched.filter(p => p.ele !== null);
+
+  let gain = 0;
+  let loss = 0;
+
+  for (let i = 1; i < withEle.length; i++) {
+    const delta = withEle[i].ele - withEle[i - 1].ele;
+    if (delta > 0) gain += delta;
+    else loss += Math.abs(delta);
+  }
+
+  const eles = withEle.map(p => p.ele);
+  const maxEle = eles.length ? Math.max(...eles) : null;
+  const minEle = eles.length ? Math.min(...eles) : null;
+  const totalDist = enriched[enriched.length - 1]?.dist ?? 0;
+
+  return {
+    totalDistKm: totalDist,
+    elevationGainM: gain,
+    elevationLossM: loss,
+    maxElevationM: maxEle,
+    minElevationM: minEle,
+    pointCount: enriched.length,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Climbs / Descents analysis
+//
+// Algorithm:
+//  1. Smooth elevations with a small moving average to remove GPS noise.
+//  2. Find all local minima and maxima on the smoothed profile.
+//  3. Merge adjacent extrema whose elevation difference is below `thresholdM`.
+//     Repeat until no more merges are possible.
+//  4. Build climb segments (min→max) and descent segments (max→min).
+// ---------------------------------------------------------------------------
+
+function movingAvg(arr, window = 5) {
+  const out = [];
+  for (let i = 0; i < arr.length; i++) {
+    const lo = Math.max(0, i - Math.floor(window / 2));
+    const hi = Math.min(arr.length - 1, i + Math.floor(window / 2));
+    let sum = 0;
+    for (let j = lo; j <= hi; j++) sum += arr[j];
+    out.push(sum / (hi - lo + 1));
+  }
+  return out;
+}
+
+export function analyzeClimbs(enriched, thresholdM = 20) {
+  const withEle = enriched.filter(p => p.ele !== null);
+  if (withEle.length < 3) return { climbs: [], descents: [] };
+
+  const rawEle = withEle.map(p => p.ele);
+  const smoothed = movingAvg(rawEle, 7);
+
+  // --- Find extrema ---
+  // An extremum is a point where the trend changes direction.
+  // We reduce to a sequence of "turning points".
+  let turning = [{ idx: 0, ele: smoothed[0], dist: withEle[0].dist }];
+
+  for (let i = 1; i < smoothed.length - 1; i++) {
+    const prev = smoothed[i - 1];
+    const curr = smoothed[i];
+    const next = smoothed[i + 1];
+    if ((curr >= prev && curr >= next) || (curr <= prev && curr <= next)) {
+      // only keep if different from last turning point
+      const last = turning[turning.length - 1];
+      if (Math.abs(curr - last.ele) > 0.01) {
+        turning.push({ idx: i, ele: curr, dist: withEle[i].dist });
+      }
+    }
+  }
+  // Always include last point
+  const lastPt = { idx: smoothed.length - 1, ele: smoothed[smoothed.length - 1], dist: withEle[withEle.length - 1].dist };
+  if (turning[turning.length - 1].idx !== lastPt.idx) turning.push(lastPt);
+
+  // --- Merge turning points below threshold ---
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const next = [turning[0]];
+    let i = 1;
+    while (i < turning.length) {
+      const prev = next[next.length - 1];
+      const curr = turning[i];
+      if (Math.abs(curr.ele - prev.ele) < thresholdM) {
+        // Merge: keep whichever is more extreme relative to surrounding context
+        // Strategy: keep the one that maintains the longer-range trend
+        if (i + 1 < turning.length) {
+          // Skip curr, let the next iteration re-evaluate
+          i++;
+          changed = true;
+          continue;
+        }
+      }
+      next.push(curr);
+      i++;
+    }
+    turning = next;
+  }
+
+  // --- Build climb/descent segments ---
+  const climbs = [];
+  const descents = [];
+
+  for (let i = 0; i < turning.length - 1; i++) {
+    const from = turning[i];
+    const to = turning[i + 1];
+    const eleDiff = to.ele - from.ele;
+    const distKm = to.dist - from.dist;
+
+    if (Math.abs(eleDiff) < thresholdM) continue;
+
+    // Find actual raw points in this range to compute real gain/loss & gradient
+    const segPts = withEle.filter(p => p.dist >= from.dist && p.dist <= to.dist);
+
+    let realGain = 0;
+    let realLoss = 0;
+    let maxGradPct = 0;
+
+    for (let j = 1; j < segPts.length; j++) {
+      const dEle = segPts[j].ele - segPts[j - 1].ele;
+      const dDist = (segPts[j].dist - segPts[j - 1].dist) * 1000; // m
+      if (dDist > 0) {
+        const grad = Math.abs(dEle / dDist) * 100;
+        if (grad > maxGradPct) maxGradPct = grad;
+      }
+      if (dEle > 0) realGain += dEle;
+      else realLoss += Math.abs(dEle);
+    }
+
+    const avgGradPct = distKm > 0 ? (Math.abs(eleDiff) / (distKm * 1000)) * 100 : 0;
+
+    const seg = {
+      startDist: from.dist,
+      endDist: to.dist,
+      startEle: from.ele,
+      endEle: to.ele,
+      lengthKm: distKm,
+      eleDiffM: Math.abs(eleDiff),
+      avgGradientPct: avgGradPct,
+      maxGradientPct: maxGradPct,
+    };
+
+    if (eleDiff > 0) {
+      seg.gainM = realGain;
+      climbs.push(seg);
+    } else {
+      seg.lossM = realLoss;
+      descents.push(seg);
+    }
+  }
+
+  return { climbs, descents };
+}
+
+// ---------------------------------------------------------------------------
+// Selection stats: given a distance range, compute avg ascent/descent rates
+// ---------------------------------------------------------------------------
+export function selectionStats(enriched, fromKm, toKm) {
+  const pts = enriched.filter(p => p.dist >= fromKm && p.dist <= toKm && p.ele !== null);
+  if (pts.length < 2) return null;
+
+  let gain = 0;
+  let loss = 0;
+  let ascentDist = 0;
+  let descentDist = 0;
+
+  for (let i = 1; i < pts.length; i++) {
+    const dEle = pts[i].ele - pts[i - 1].ele;
+    const dDist = pts[i].dist - pts[i - 1].dist; // km
+    if (dEle > 0) {
+      gain += dEle;
+      ascentDist += dDist;
+    } else if (dEle < 0) {
+      loss += Math.abs(dEle);
+      descentDist += dDist;
+    }
+  }
+
+  const totalDist = pts[pts.length - 1].dist - pts[0].dist;
+  // rates in m/km
+  const avgAscentRate = ascentDist > 0 ? gain / ascentDist : 0;
+  const avgDescentRate = descentDist > 0 ? loss / descentDist : 0;
+
+  return {
+    distKm: totalDist,
+    gainM: gain,
+    lossM: loss,
+    avgAscentRateMpKm: avgAscentRate,
+    avgDescentRateMpKm: avgDescentRate,
+    avgAscentPct: avgAscentRate / 10,   // m/km ÷ 10 = %
+    avgDescentPct: avgDescentRate / 10,
+  };
+}
