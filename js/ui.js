@@ -74,6 +74,9 @@ function processGPX(xmlString, filename) {
 
   trackName.textContent = gpx.name !== 'Unnamed Track' ? gpx.name : filename.replace('.gpx', '');
 
+  // Show a "Replace file" button next to the track name
+  document.getElementById('replace-btn').classList.remove('hidden');
+
   // Unhide section FIRST so the canvas container has a real clientWidth
   analysisSection.classList.remove('hidden');
   dropZone.classList.add('loaded');
@@ -104,12 +107,24 @@ function renderStats() {
 }
 
 // ---------------------------------------------------------------------------
-// Climbs
+// Threshold slider — fill indicator + label update
 // ---------------------------------------------------------------------------
+function updateSliderFill() {
+  const min = parseInt(thresholdSlider.min, 10);
+  const max = parseInt(thresholdSlider.max, 10);
+  const val = parseInt(thresholdSlider.value, 10);
+  const pct = ((val - min) / (max - min)) * 100;
+  thresholdSlider.style.setProperty('--pct', pct.toFixed(1) + '%');
+  thresholdValue.textContent = val + ' m';
+}
+
 thresholdSlider.addEventListener('input', () => {
-  thresholdValue.textContent = thresholdSlider.value + ' m';
+  updateSliderFill();
   renderClimbs();
 });
+
+// Initialise fill on page load
+updateSliderFill();
 
 function renderClimbs() {
   const threshold = parseInt(thresholdSlider.value, 10);
@@ -131,6 +146,13 @@ function renderClimbs() {
   }
 }
 
+function difficultyBadge(avgGrad) {
+  if (avgGrad < 5)  return '<span class="difficulty-badge difficulty-badge--easy">Easy</span>';
+  if (avgGrad < 10) return '<span class="difficulty-badge difficulty-badge--moderate">Moderate</span>';
+  if (avgGrad < 15) return '<span class="difficulty-badge difficulty-badge--hard">Hard</span>';
+  return '<span class="difficulty-badge difficulty-badge--extreme">Extreme</span>';
+}
+
 function climbCard(seg, n, type) {
   const isClimb = type === 'climb';
   const arrow = isClimb ? '▲' : '▼';
@@ -142,6 +164,7 @@ function climbCard(seg, n, type) {
     <div class="climb-card ${colorClass}">
       <div class="climb-header">
         <span class="climb-num">${arrow} #${n}</span>
+        ${difficultyBadge(seg.avgGradientPct)}
         <span class="climb-range">${seg.startDist.toFixed(1)} – ${seg.endDist.toFixed(1)} km</span>
       </div>
       <div class="climb-stats">

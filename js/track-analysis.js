@@ -120,27 +120,48 @@ export function analyzeClimbs(enriched, thresholdM = 20) {
   if (turning[turning.length - 1].idx !== lastPt.idx) turning.push(lastPt);
 
   // --- Merge turning points below threshold ---
+  // Repeatedly scan the turning point list and remove any point whose elevation
+  // difference from BOTH its neighbours is below the threshold (i.e. it is a
+  // "small wiggle").  Keep going until nothing changes.
   let changed = true;
   while (changed) {
     changed = false;
+    if (turning.length <= 2) break;
+
     const next = [turning[0]];
     let i = 1;
-    while (i < turning.length) {
+    while (i < turning.length - 1) {
       const prev = next[next.length - 1];
       const curr = turning[i];
-      if (Math.abs(curr.ele - prev.ele) < thresholdM) {
-        // Merge: keep whichever is more extreme relative to surrounding context
-        // Strategy: keep the one that maintains the longer-range trend
-        if (i + 1 < turning.length) {
-          // Skip curr, let the next iteration re-evaluate
-          i++;
-          changed = true;
-          continue;
-        }
+      const nxt  = turning[i + 1];
+
+      const diffPrev = Math.abs(curr.ele - prev.ele);
+      const diffNext = Math.abs(curr.ele - nxt.ele);
+
+      if (diffPrev < thresholdM && diffNext < thresholdM) {
+        // This turning point is a small bump — skip it entirely
+        changed = true;
+        i++;
+        continue;
       }
+
+      if (diffPrev < thresholdM) {
+        // Merge curr into prev: keep whichever is more extreme
+        // (higher for peaks, lower for valleys)
+        const isCurrPeak = curr.ele > prev.ele;
+        if (isCurrPeak ? curr.ele > prev.ele : curr.ele < prev.ele) {
+          next[next.length - 1] = curr; // replace prev with curr
+        }
+        changed = true;
+        i++;
+        continue;
+      }
+
       next.push(curr);
       i++;
     }
+    // Always keep the last point
+    next.push(turning[turning.length - 1]);
     turning = next;
   }
 

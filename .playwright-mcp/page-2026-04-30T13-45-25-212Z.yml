@@ -1,0 +1,18 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - img [ref=e5]
+        - generic [ref=e10]: GPX Dynamic Analysis
+      - generic [ref=e11] [cursor=pointer]:
+        - img [ref=e12]
+        - text: Load GPX
+      - button "Load GPX" [ref=e15]
+  - generic [ref=e16] [cursor=pointer]:
+    - generic:
+      - img
+      - paragraph: Drop your GPX file here
+      - paragraph:
+        - text: or click
+        - strong: Load GPX
+        - text: in the header

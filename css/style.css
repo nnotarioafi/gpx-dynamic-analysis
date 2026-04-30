@@ -115,6 +115,21 @@ strong { font-weight: 600; }
 
 .btn--primary:active { transform: translateY(0); }
 
+.btn--ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-strong);
+  font-size: 12px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+.btn--ghost:hover {
+  background: var(--bg-card);
+  color: var(--text);
+  transform: none;
+}
+
 /* ============================================================
    Error banner
    ============================================================ */
@@ -178,12 +193,23 @@ main {
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 24px 48px;
+  /* Offset for sticky header so anchored sections aren't hidden under it */
+  scroll-padding-top: 64px;
+}
+
+/* Every direct child section gets scroll-margin so sticky header doesn't overlap */
+main > * {
+  scroll-margin-top: 64px;
 }
 
 .track-title-bar {
   padding: 20px 0 8px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .track-name {
@@ -308,7 +334,14 @@ input[type="range"] {
   flex: 1;
   height: 5px;
   appearance: none;
-  background: var(--border-strong);
+  /* --pct is set dynamically via JS */
+  background: linear-gradient(
+    to right,
+    var(--green) 0%,
+    var(--green) var(--pct, 9%),
+    var(--border-strong) var(--pct, 9%),
+    var(--border-strong) 100%
+  );
   border-radius: 99px;
   outline: none;
   cursor: pointer;
@@ -410,7 +443,23 @@ input[type="range"]::-webkit-slider-thumb:hover {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 6px;
+  gap: 6px;
 }
+
+.difficulty-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+.difficulty-badge--easy    { background: rgba(99,210,140,0.18); color: #63d28c; }
+.difficulty-badge--moderate{ background: rgba(250,204,21,0.18);  color: #facc15; }
+.difficulty-badge--hard    { background: rgba(249,115,22,0.18);  color: #f97316; }
+.difficulty-badge--extreme { background: rgba(248,113,113,0.18); color: #f87171; }
 
 .climb-num {
   font-weight: 700;
@@ -485,6 +534,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 .legend-item--climb::before { background: rgba(249, 115, 22, 0.35); border: 1px solid rgba(249,115,22,0.5); }
 .legend-item--descent::before { background: rgba(56, 189, 248, 0.25); border: 1px solid rgba(56,189,248,0.4); }
+.legend-item--gradient::before {
+  background: linear-gradient(to right, #63d28c, #facc15, #f97316, #f87171);
+  border: none;
+}
 
 .canvas-wrap {
   width: 100%;
@@ -527,8 +580,12 @@ canvas {
 
 .sel-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 10px;
+}
+
+@media (max-width: 700px) {
+  .sel-stats { grid-template-columns: repeat(2, 1fr); }
 }
 
 .sel-stat {

@@ -163,35 +163,42 @@ export class ElevationChart {
     const pts = this.enriched;
     const bottomY = this.margin.top + this.chartH;
 
-    // Gradient fill
+    // Gradient fill (background area under the line)
     const grad = ctx.createLinearGradient(0, this.margin.top, 0, bottomY);
-    grad.addColorStop(0, 'rgba(99, 210, 140, 0.55)');
-    grad.addColorStop(1, 'rgba(99, 210, 140, 0.04)');
+    grad.addColorStop(0, 'rgba(99, 210, 140, 0.30)');
+    grad.addColorStop(1, 'rgba(99, 210, 140, 0.02)');
 
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(this._distToX(pts[0].dist), bottomY);
     ctx.lineTo(this._distToX(pts[0].dist), this._eleToY(pts[0].ele));
-
     for (let i = 1; i < pts.length; i++) {
       ctx.lineTo(this._distToX(pts[i].dist), this._eleToY(pts[i].ele));
     }
-
     ctx.lineTo(this._distToX(pts[pts.length - 1].dist), bottomY);
     ctx.closePath();
     ctx.fillStyle = grad;
     ctx.fill();
+    ctx.restore();
 
-    // Profile line
-    ctx.beginPath();
-    ctx.moveTo(this._distToX(pts[0].dist), this._eleToY(pts[0].ele));
-    for (let i = 1; i < pts.length; i++) {
-      ctx.lineTo(this._distToX(pts[i].dist), this._eleToY(pts[i].ele));
-    }
-    ctx.strokeStyle = '#63d28c';
-    ctx.lineWidth = 2;
+    // Gradient-coloured profile line: colour each segment by gradient %
+    // 0–5%: green, 5–10%: yellow, 10–15%: orange, >15%: red
+    ctx.save();
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
     ctx.setLineDash([]);
-    ctx.stroke();
+
+    for (let i = 1; i < pts.length; i++) {
+      const dEle  = pts[i].ele  - pts[i - 1].ele;
+      const dDist = (pts[i].dist - pts[i - 1].dist) * 1000; // m
+      const gradPct = dDist > 0 ? Math.abs(dEle / dDist) * 100 : 0;
+
+      ctx.beginPath();
+      ctx.strokeStyle = gradientColor(gradPct);
+      ctx.moveTo(this._distToX(pts[i - 1].dist), this._eleToY(pts[i - 1].ele));
+      ctx.lineTo(this._distToX(pts[i].dist),     this._eleToY(pts[i].ele));
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -362,4 +369,18 @@ function niceStep(range, targetTicks) {
   if (residual < 3.5) return 2 * mag;
   if (residual < 7.5) return 5 * mag;
   return 10 * mag;
+}
+
+// ---------------------------------------------------------------------------
+// Utility: map gradient % to a colour
+//   0–5%   → green  (#63d28c)
+//   5–10%  → yellow (#facc15)
+//   10–15% → orange (#f97316)
+//   >15%   → red    (#f87171)
+// ---------------------------------------------------------------------------
+function gradientColor(pct) {
+  if (pct < 5)  return '#63d28c';
+  if (pct < 10) return '#facc15';
+  if (pct < 15) return '#f97316';
+  return '#f87171';
 }
