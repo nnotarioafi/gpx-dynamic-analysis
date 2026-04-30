@@ -47,11 +47,9 @@ const locales = {
     labelMaxEle:   'Max Elevation',
     labelMinEle:   'Min Elevation',
     labelNetEle:   'Net Elevation',
-    labelPoints:   'Track Points',
     unitKm:  'km',
     unitKme: 'km-e',
     unitM:   'm',
-    unitPts: 'pts',
 
     // Climbs panel
     climbsDescents:  'Climbs & Descents Analysis',
@@ -138,11 +136,9 @@ const locales = {
     labelMaxEle:   'Altitud máxima',
     labelMinEle:   'Altitud mínima',
     labelNetEle:   'Desnivel neto',
-    labelPoints:   'Puntos de ruta',
     unitKm:  'km',
     unitKme: 'km-e',
     unitM:   'm',
-    unitPts: 'pts',
 
     // Climbs panel
     climbsDescents:  'Análisis de Subidas y Bajadas',

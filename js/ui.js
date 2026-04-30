@@ -354,7 +354,6 @@ function renderStats() {
     { label: t('labelMaxEle'),   value: s.maxElevationM !== null ? Math.round(s.maxElevationM) : '—', unit: s.maxElevationM !== null ? t('unitM') : '' },
     { label: t('labelMinEle'),   value: s.minElevationM !== null ? Math.round(s.minElevationM) : '—', unit: s.minElevationM !== null ? t('unitM') : '' },
     { label: t('labelNetEle'),   value: s.netElevationM !== null ? netSign + Math.round(s.netElevationM) : '—', unit: s.netElevationM !== null ? t('unitM') : '', accent: s.netElevationM > 0 ? 'gain' : s.netElevationM < 0 ? 'loss' : '' },
-    { label: t('labelPoints'),   value: s.pointCount.toLocaleString(), unit: t('unitPts') },
   ];
 
   statsGrid.innerHTML = cards.map(c => `
