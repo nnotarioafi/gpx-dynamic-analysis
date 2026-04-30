@@ -1124,3 +1124,212 @@ canvas {
   color: #a78bfa;
   font-style: normal;
 }
+
+/* ============================================================
+   Compare split-button (hidden until Track A loaded)
+   ============================================================ */
+.split-btn--compare {
+  display: none;
+}
+.split-btn--compare.visible {
+  display: flex;
+}
+.split-btn__main--compare {
+  color: var(--orange);
+}
+.split-btn__main--compare:hover,
+.split-btn__main--compare:focus-visible {
+  background: rgba(249, 115, 22, 0.12);
+}
+
+/* ============================================================
+   Comparison Section
+   ============================================================ */
+#comparison-section {
+  max-width: 1200px;
+  margin: 0 auto 2.5rem;
+  padding: 0 1rem;
+}
+
+/* --- Compare header bar --- */
+.compare-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  padding: .75rem 1rem;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.compare-header .compare-track-names {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  font-size: .95rem;
+  flex-wrap: wrap;
+}
+.compare-header .compare-title {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  margin-right: .25rem;
+}
+.compare-header .compare-track-a { color: var(--blue); font-weight: 600; }
+.compare-header .compare-track-b { color: var(--orange); font-weight: 600; }
+.compare-header .compare-vs { color: var(--text-muted); font-size: .85rem; }
+.compare-header .btn--clear { margin-left: auto; font-size: .78rem; padding: .3rem .7rem; }
+
+/* --- Compare stats table --- */
+.compare-stats-section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+.compare-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .85rem;
+}
+.compare-stats-table th,
+.compare-stats-table td {
+  padding: .42rem .75rem;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+.compare-stats-table th:first-child,
+.compare-stats-table td:first-child {
+  text-align: left;
+  color: var(--text-muted);
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.compare-stats-table thead th {
+  color: var(--text-muted);
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding-bottom: .55rem;
+}
+.compare-stats-table .col-a { color: var(--blue); }
+.compare-stats-table .col-b { color: var(--orange); }
+.compare-stats-table .val-better { font-weight: 700; }
+.compare-stats-table tbody tr:last-child td { border-bottom: none; }
+
+/* --- Compare chart panel --- */
+.compare-chart-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+}
+.compare-chart-panel .panel-title { margin-bottom: .5rem; }
+.compare-chart-legend {
+  display: flex;
+  gap: 1.25rem;
+  font-size: .8rem;
+  margin-bottom: .6rem;
+  flex-wrap: wrap;
+}
+.compare-chart-legend .legend-a { color: var(--blue); }
+.compare-chart-legend .legend-b { color: var(--orange); }
+.compare-chart-legend span::before {
+  content: '─ ';
+  font-weight: 700;
+}
+
+/* --- Compare two-column rows (terrain, runnable) --- */
+.compare-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 700px) {
+  .compare-row { grid-template-columns: 1fr; }
+}
+.compare-row .panel-half {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+}
+.compare-row .panel-half h4 {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: .65rem;
+}
+.compare-row .panel-half h4.col-a { color: var(--blue); }
+.compare-row .panel-half h4.col-b { color: var(--orange); }
+
+/* --- Compare climbs --- */
+.compare-climbs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 700px) {
+  .compare-climbs { grid-template-columns: 1fr; }
+}
+.compare-climbs .climb-col {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+.compare-climbs .climb-col h4 {
+  font-size: .82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: .75rem;
+}
+.compare-climbs .climb-col h4.col-a { color: var(--blue); }
+.compare-climbs .climb-col h4.col-b { color: var(--orange); }
+.compare-climbs .climb-list-inner { max-height: 420px; overflow-y: auto; }
+
+/* --- Compare splits table --- */
+.compare-splits-section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+.compare-splits-section h3 { margin-bottom: .75rem; }
+.compare-splits-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .82rem;
+}
+.compare-splits-table th,
+.compare-splits-table td {
+  padding: .35rem .6rem;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+.compare-splits-table th:first-child,
+.compare-splits-table td:first-child { text-align: left; }
+.compare-splits-table thead th {
+  color: var(--text-muted);
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.compare-splits-table .col-a { color: var(--blue); }
+.compare-splits-table .col-b { color: var(--orange); }
+.compare-splits-table tbody tr:last-child td { border-bottom: none; }
