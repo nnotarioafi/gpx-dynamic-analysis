@@ -517,6 +517,50 @@ export class ElevationChart {
     this.canvas.height = height;
     this.render();
   }
+
+  // -------------------------------------------------------------------------
+  // Second-track overlay (comparison mode)
+  // -------------------------------------------------------------------------
+  /**
+   * Draw Track B as an orange line over the already-rendered Track A.
+   * enrichedB: array of { ele, dist } points
+   * Both tracks normalise to the full 0→chartW span so km 0 = start for both.
+   * Uses a shared y-axis that covers both tracks' elevation range.
+   * Only draws in standard (non-cumulative) mode.
+   */
+  drawSecondTrack(enrichedB) {
+    if (!enrichedB || enrichedB.length < 2 || this.showCumulative) return;
+    const { ctx } = this;
+    const pts = enrichedB.filter(p => p.ele !== null);
+    if (pts.length < 2) return;
+
+    const maxDistB = pts[pts.length - 1].dist;
+
+    // Expand y range to cover both tracks
+    const elesA = this.enriched.map(p => p.ele);
+    const elesB = pts.map(p => p.ele);
+    const minEle = Math.min(...elesA, ...elesB);
+    const maxEle = Math.max(...elesA, ...elesB);
+    const range  = maxEle - minEle || 1;
+    const pad    = range * 0.1;
+
+    const yB = (ele) =>
+      this.margin.top + this.chartH - ((ele - (minEle - pad)) / (range + 2 * pad)) * this.chartH;
+    const xB = (dist) =>
+      this.margin.left + (dist / maxDistB) * this.chartW;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(249, 115, 22, 0.9)'; // --orange
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      i === 0 ? ctx.moveTo(xB(p.dist), yB(p.ele)) : ctx.lineTo(xB(p.dist), yB(p.ele));
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 // ---------------------------------------------------------------------------
