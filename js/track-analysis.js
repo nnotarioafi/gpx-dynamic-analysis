@@ -427,6 +427,21 @@ export function cumulativeGainLoss(enriched) {
 }
 
 // ---------------------------------------------------------------------------
+// Convert a known reference race (road) into an equivalent trail flat pace.
+//
+// distKm       : distance of the reference race in km (e.g. 10)
+// totalMinutes : finish time in minutes (e.g. 55)
+// trailFactor  : trail is ~15% slower than road on flat (default 1.15)
+//
+// Returns trail flat pace in min/km.
+// ---------------------------------------------------------------------------
+export function refRaceToTrailPace(distKm, totalMinutes, trailFactor = 1.15) {
+  if (distKm <= 0 || totalMinutes <= 0) return 7; // safe fallback
+  const roadPace = totalMinutes / distKm;
+  return roadPace * trailFactor;
+}
+
+// ---------------------------------------------------------------------------
 // Finish-time estimate — trail-running two-parameter model
 //
 // flatPaceMinKm  : runner's flat pace in min/km (default 7)

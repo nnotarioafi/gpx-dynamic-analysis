@@ -98,9 +98,13 @@ const locales = {
     linkCopied:  'Copied!',
 
     // Finish time estimate
-    labelEstTime: 'Est. Finish Time',
-    labelPaceAt:  'at',
-    unitMinKm:    'min/km',
+    labelEstTime:      'Est. Finish Time',
+    refRaceLabel:      'Based on your',
+    refDistUnit:       'km race in',
+    refHoursUnit:      'h',
+    refMinsUnit:       'min',
+    derivedPaceLabel:  '→ Trail pace:',
+    unitMinKm:         'min/km',
 
     // Runnable vs hike
     runnableHikeTitle: 'Runnable vs Hike',
@@ -200,9 +204,13 @@ const locales = {
     linkCopied:  '¡Copiado!',
 
     // Finish time estimate
-    labelEstTime: 'Tiempo estimado',
-    labelPaceAt:  'a',
-    unitMinKm:    'min/km',
+    labelEstTime:      'Tiempo estimado',
+    refRaceLabel:      'Basado en tu',
+    refDistUnit:       'km en',
+    refHoursUnit:      'h',
+    refMinsUnit:       'min',
+    derivedPaceLabel:  '→ Ritmo trail:',
+    unitMinKm:         'min/km',
 
     // Runnable vs hike
     runnableHikeTitle: 'Corrible vs Senderismo',

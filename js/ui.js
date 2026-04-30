@@ -5,7 +5,7 @@
  */
 
 import { parseGPX } from './gpx-parser.js';
-import { enrichPoints, computeStats, analyzeClimbs, selectionStats, terrainDistribution, steepestSections, perKmSplits, cumulativeGainLoss, estimateFinishTime, climbEstimatedTime, raceDifficulty, runnableVsHike } from './track-analysis.js';
+import { enrichPoints, computeStats, analyzeClimbs, selectionStats, terrainDistribution, steepestSections, perKmSplits, cumulativeGainLoss, estimateFinishTime, climbEstimatedTime, raceDifficulty, runnableVsHike, refRaceToTrailPace } from './track-analysis.js';
 import { ElevationChart } from './chart.js';
 import { t, getLocale, setLocale, initLocale } from './i18n.js';
 
@@ -15,8 +15,25 @@ import { t, getLocale, setLocale, initLocale } from './i18n.js';
 let enriched = [];
 let chart = null;
 
-const PACE_STORAGE_KEY = 'gpx-flat-pace';
-let flatPace = parseFloat(localStorage.getItem(PACE_STORAGE_KEY)) || 7;
+const REF_STORAGE_KEY = 'gpx-ref-race';
+
+function loadRefRace() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(REF_STORAGE_KEY));
+    if (saved && saved.dist > 0 && saved.hours >= 0 && saved.mins >= 0) return saved;
+  } catch (_) {}
+  return { dist: 10, hours: 1, mins: 0 }; // default: 10 km in 1h00
+}
+
+function saveRefRace(ref) {
+  localStorage.setItem(REF_STORAGE_KEY, JSON.stringify(ref));
+}
+
+let refRace = loadRefRace();
+
+function currentTrailPace() {
+  return refRaceToTrailPace(refRace.dist, refRace.hours * 60 + refRace.mins);
+}
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -364,10 +381,12 @@ function renderStats() {
     { label: t('labelNetEle'),   value: s.netElevationM !== null ? netSign + Math.round(s.netElevationM) : '—', unit: s.netElevationM !== null ? t('unitM') : '', accent: s.netElevationM > 0 ? 'gain' : s.netElevationM < 0 ? 'loss' : '' },
   ];
 
-  const est = estimateFinishTime(enriched, flatPace);
+  const trailPace = currentTrailPace();
+  const est = estimateFinishTime(enriched, trailPace);
   const estDisplay = est.hours > 0
     ? `${est.hours}h ${String(est.minutes).padStart(2, '0')}m`
     : `${est.minutes} min`;
+  const derivedPaceStr = trailPace.toFixed(1);
 
   statsGrid.innerHTML = cards.map(c => `
     <div class="stat-card ${c.accent ? 'stat-card--' + c.accent : ''}">
@@ -379,34 +398,44 @@ function renderStats() {
       <span class="stat-label">${t('labelEstTime')}</span>
       <div class="stat-time-row">
         <span class="stat-value" id="est-time-value">${estDisplay}</span>
-        <label class="pace-label" for="pace-input">
-          ${t('labelPaceAt')}
-          <input id="pace-input" class="pace-input" type="number" min="4" max="20" step="0.5" value="${flatPace}">
-          ${t('unitMinKm')}
-        </label>
       </div>
+      <div class="ref-race-row">
+        <span class="ref-race-label">${t('refRaceLabel')}</span>
+        <input id="ref-dist"  class="ref-input" type="number" min="1" max="200" step="1"  value="${refRace.dist}"  aria-label="distance km">
+        <span class="ref-unit">${t('refDistUnit')}</span>
+        <input id="ref-hours" class="ref-input ref-input--time" type="number" min="0" max="23" step="1"  value="${refRace.hours}" aria-label="hours">
+        <span class="ref-unit">${t('refHoursUnit')}</span>
+        <input id="ref-mins"  class="ref-input ref-input--time" type="number" min="0" max="59" step="1"  value="${refRace.mins}"  aria-label="minutes">
+        <span class="ref-unit">${t('refMinsUnit')}</span>
+      </div>
+      <div class="ref-pace-hint" id="ref-pace-hint">${t('derivedPaceLabel')} ${derivedPaceStr} ${t('unitMinKm')}</div>
     </div>
   `;
 
-  // Wire up the pace input
-  const paceInput = document.getElementById('pace-input');
-  if (paceInput) {
-    paceInput.addEventListener('change', () => {
-      const v = parseFloat(paceInput.value);
-      if (v >= 4 && v <= 20) {
-        flatPace = v;
-        localStorage.setItem(PACE_STORAGE_KEY, v);
-        // Re-render just the time value + climb cards
-        const newEst = estimateFinishTime(enriched, flatPace);
-        const newDisplay = newEst.hours > 0
-          ? `${newEst.hours}h ${String(newEst.minutes).padStart(2, '0')}m`
-          : `${newEst.minutes} min`;
-        const timeEl = document.getElementById('est-time-value');
-        if (timeEl) timeEl.textContent = newDisplay;
-        renderClimbs(); // re-renders climb cards that show per-climb time
-      }
-    });
+  // Wire up the three reference-race inputs
+  function onRefChange() {
+    const d = parseFloat(document.getElementById('ref-dist')?.value)  || refRace.dist;
+    const h = parseInt(document.getElementById('ref-hours')?.value, 10) ?? refRace.hours;
+    const m = parseInt(document.getElementById('ref-mins')?.value,  10) ?? refRace.mins;
+    if (d <= 0 || (h === 0 && m === 0)) return;
+    refRace = { dist: d, hours: h, mins: m };
+    saveRefRace(refRace);
+
+    const pace = currentTrailPace();
+    const newEst = estimateFinishTime(enriched, pace);
+    const newDisplay = newEst.hours > 0
+      ? `${newEst.hours}h ${String(newEst.minutes).padStart(2, '0')}m`
+      : `${newEst.minutes} min`;
+    const timeEl = document.getElementById('est-time-value');
+    if (timeEl) timeEl.textContent = newDisplay;
+    const hintEl = document.getElementById('ref-pace-hint');
+    if (hintEl) hintEl.textContent = `${t('derivedPaceLabel')} ${pace.toFixed(1)} ${t('unitMinKm')}`;
+    renderClimbs();
   }
+
+  ['ref-dist', 'ref-hours', 'ref-mins'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', onRefChange);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -508,7 +537,7 @@ function climbCard(seg, n, type) {
   const colorClass = isClimb ? 'climb-card--up' : 'climb-card--down';
   const eleLabel  = isClimb ? t('gainLabel') : t('lossLabel');
   const eleVal    = isClimb ? Math.round(seg.gainM ?? seg.eleDiffM) : Math.round(seg.lossM ?? seg.eleDiffM);
-  const timeEst   = climbEstimatedTime(seg, type, flatPace);
+  const timeEst   = climbEstimatedTime(seg, type, currentTrailPace());
 
   return `
     <div class="climb-card ${colorClass}">

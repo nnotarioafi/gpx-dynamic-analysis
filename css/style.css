@@ -1012,10 +1012,9 @@ canvas {
    Estimated Finish Time card
    ============================================================ */
 .stat-card--time {
-  border-left: 3px solid #a78bfa; /* purple accent */
+  border-left: 3px solid #a78bfa;
 }
 
-/* Span full grid width */
 .stat-card--wide {
   grid-column: 1 / -1;
 }
@@ -1025,22 +1024,28 @@ canvas {
   align-items: baseline;
   gap: 16px;
   flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
-.pace-label {
+/* Reference-race input row */
+.ref-race-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 5px;
+  margin-top: 4px;
+}
+
+.ref-race-label {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
-  cursor: default;
+  margin-right: 2px;
 }
 
-.pace-input {
-  width: 52px;
+.ref-input {
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -1052,10 +1057,31 @@ canvas {
   text-align: center;
   outline: none;
   transition: border-color 0.15s;
+  width: 52px;
 }
 
-.pace-input:focus {
+.ref-input--time {
+  width: 44px;
+}
+
+.ref-input:focus {
   border-color: #a78bfa;
+}
+
+.ref-unit {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* Derived trail pace hint */
+.ref-pace-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
 /* ============================================================
